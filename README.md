@@ -2,7 +2,7 @@
 
 ## Input
 
-L'accesso al elemento **L**:
+L'input del gioco è una struttura dei dati ottenibile in qualsiasi momento nel tempo. Viene aggiornato con ogni messaggio arrivato dal server. L'accesso al elemento **L**:
 
     document.getElementsByTagName("iframe")[0].contentWindow.tutti_i_dati
 
@@ -18,7 +18,7 @@ Il tempo passato (secondi):
 
     L.H.Ac
     
-Durata massima della partità (minuti)
+Durata massima della partita (minuti)
 
     L.H.xa
     
@@ -86,7 +86,7 @@ La velocità della palla
 
 ## Output
 
-Il codice da eseguire per andare giù
+L'ouput al gioco viene mandato tramite simulazione della tastiera al livello di JS. Il codice da eseguire per andare giù
 
     document.getElementsByTagName("iframe")[0].contentDocument.getElementsByTagName('canvas')[0].dispatchEvent(new KeyboardEvent("keydown", {bubbles:true, key : "ArrowDown", keyCode : 40, code: 'ArrowDown'}))
     // aspettare un po'
