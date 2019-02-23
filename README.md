@@ -1,6 +1,8 @@
 # HaxballAI
 
-## Input
+## L'interrogazione con il gioco reale
+
+### Input
 
 L'input del gioco è una struttura dei dati ottenibile in qualsiasi momento nel tempo. Viene aggiornato con ogni messaggio arrivato dal server. L'accesso al elemento **L**:
 
@@ -84,9 +86,13 @@ La velocità della palla
 *(In realtà c'è la lista delle palle, il primo elemento sembra affidabile)*
 
 
-## Output
+### Output
 
-L'ouput al gioco viene mandato tramite simulazione della tastiera al livello di JS. Il codice da eseguire per andare giù
+L'ouput al gioco viene mandato tramite simulazione della tastiera al livello di JS. 
+
+**NB**: come nella tastiera reale ogni bottone può essere schiacciato e liberato nei momenti diversi (keydown/keyup), quindi li dobbiamo considerare come due *azioni* diverse ma dipendenti.
+
+Il codice da eseguire per andare giù:
 
     document.getElementsByTagName("iframe")[0].contentDocument.getElementsByTagName('canvas')[0].dispatchEvent(new KeyboardEvent("keydown", {bubbles:true, key : "ArrowDown", keyCode : 40, code: 'ArrowDown'}))
     // aspettare un po'
@@ -102,3 +108,27 @@ Valori per l'evento
 | a destra   | ArrowRight | ArrowRight | 39      |
 | spazio     | " "        | Space      | 39      |
 
+## Modello RL
+
+### TODO e da capire:
+
+* come definire rewards
+* durata di una sessione di addestramento? Finisce con un gol? O forse con un timeout (per non fargli capire che la strategia migliore è non fare niente)?
+* come trasformare e arricchire l'input *(osservazione dell'ambiente)*. Per esempio, dare le distanze dal giocatore alla palla, dal giocatore al centro della porta, ai bordi, ecc
+* come parallelizzare addestramento? Google [evidentemente lo fa](https://www.youtube.com/watch?v=iaF43Ze1oeI)
+* è possibile generalizzare l'input per non fare un agente ad hoc ogni volta per numero diverso degli avversari/partner?
+
+## Materiali utili
+
+#### Teoria di RL
+
+* [Il libro di R.Sutton, edizioni 1988-2017](http://incompleteideas.net/book/bookdraft2017nov5.pdf)
+* [Gli esercizi di Sutton fatti](https://github.com/ShangtongZhang/reinforcement-learning-an-introduction)
+* [Il corso "Deep Reinforcement Learning" di UC Berkeley](http://rail.eecs.berkeley.edu/deeprlcourse/)
+* [Deep RL Bootcamp, UC Berkeley 2017](https://sites.google.com/view/deep-rl-bootcamp/lectures)
+* [RL, A tutorial](http://www.cs.toronto.edu/~zemel/documents/411/rltutorial.pdf)
+
+#### Livello pratico
+
+* [Awesome RL, github](https://github.com/aikorea/awesome-rl)
+* [RL Methods and Tutorials, github](https://github.com/MorvanZhou/Reinforcement-learning-with-tensorflow)
