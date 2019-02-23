@@ -132,3 +132,4 @@ Valori per l'evento
 
 * [Awesome RL, github](https://github.com/aikorea/awesome-rl)
 * [RL Methods and Tutorials, github](https://github.com/MorvanZhou/Reinforcement-learning-with-tensorflow)
+* [OpenAI-Gym, github](https://github.com/openai/gym)
