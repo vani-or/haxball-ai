@@ -57,6 +57,10 @@ La lista dei giocatori
     
     L.D
     
+L'id del primo giocatore
+
+    L.D[0].T
+
 Il nome del primo giocatore
     
     L.D[0].o
@@ -78,6 +82,7 @@ La velocità
 La posizione della palla
 
     L.H.kd
+    L.H.wa.K[0].a
     
 La velocità della palla
 
@@ -106,7 +111,7 @@ Valori per l'evento
 | su         | ArrowUp    | ArrowUp    | 38      |
 | a sinistra | ArrowLeft  | ArrowLeft  | 37      |
 | a destra   | ArrowRight | ArrowRight | 39      |
-| spazio     | " "        | Space      | 39      |
+| spazio     | " "        | Space      | 32      |
 
 ## Modello RL
 
@@ -130,6 +135,7 @@ Valori per l'evento
 
 #### Livello pratico
 
+* [Implementazioni diversi di Rl](https://github.com/dennybritz/reinforcement-learning)
 * [Awesome RL, github](https://github.com/aikorea/awesome-rl)
 * [RL Methods and Tutorials, github](https://github.com/MorvanZhou/Reinforcement-learning-with-tensorflow)
 * [OpenAI-Gym, github](https://github.com/openai/gym)
