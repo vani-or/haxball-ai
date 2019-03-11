@@ -31,6 +31,8 @@ def inject(js):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG, format='%(levelname)s\t%(asctime)s (%(threadName)-9s) %(message)s')
 
+    room_url = input('Please enter room url: ')
+
     def requestIntercepted(tab):
         def handler(*args, **kwargs):
             resp = tab.Network.getResponseBodyForInterception(interceptionId=kwargs['interceptionId'])
@@ -45,8 +47,6 @@ if __name__ == '__main__':
                 rawResponse=base64.b64encode(new_js.encode('utf-8')).decode('utf-8')
             )
         return handler
-
-    room_url = ' https://www.haxball.com/play?c=mFpnb4qXwCA&p=1'
 
     tabs = []
     for i in range(2):
