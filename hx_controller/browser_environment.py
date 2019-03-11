@@ -21,27 +21,27 @@ class BrowserEnvironment(HXController):
             9:  posizione y della palla
             10: velocità x della palla
             11: velocità y della palla
-            # 12: bottone LEFT premuto (bool)
-            # 13: bottone RIGHT premuto (bool)
-            # 14: bottone UP premuto (bool)
-            # 15: bottone DOWN premuto (bool)
-            # 16: bottone SPACE premuto (bool)
+            12: bottone LEFT premuto (bool)
+            13: bottone RIGHT premuto (bool)
+            14: bottone UP premuto (bool)
+            15: bottone DOWN premuto (bool)
+            16: bottone SPACE premuto (bool)
 
-            12: distanza dal giocatore alla palla
-            13: campo bloccato (1 se l'avversario deve ancora toccare la palla, 0 - se lo deve il giocatore o la partita è già iniziata)
+            # 12: distanza dal giocatore alla palla
+            17: campo bloccato (1 se l'avversario deve ancora toccare la palla, 0 - se lo deve il giocatore o la partita è già iniziata)
 
         Output (Azioni):
             0: NULL (aspettare / non fare niente)
-            # 1: Cambiare lo stato del bottone LEFT
-            # 2: Cambiare lo stato del bottone RIGHT
-            # 3: Cambiare lo stato del bottone UP
-            # 4: Cambiare lo stato del bottone DOWN
-            # 5: Cambiare lo stato del bottone SPACE
-            1: premere LEFT per 100ms
-            2: premere RIGHT per 100ms
-            3: premere UP per 100ms
-            4: premere DOWN per 100ms
-            5: premere SPACE per 100ms
+            1: Cambiare lo stato del bottone LEFT
+            2: Cambiare lo stato del bottone RIGHT
+            3: Cambiare lo stato del bottone UP
+            4: Cambiare lo stato del bottone DOWN
+            5: Cambiare lo stato del bottone SPACE
+            # 1: premere LEFT per 100ms
+            # 2: premere RIGHT per 100ms
+            # 3: premere UP per 100ms
+            # 4: premere DOWN per 100ms
+            # 5: premere SPACE per 100ms
     """
     def __init__(self, browser_tab: Tab, username: str) -> None:
         super().__init__(browser_tab, username)
@@ -72,12 +72,9 @@ class BrowserEnvironment(HXController):
                     key = 'right'
                 elif key == 'right':
                     key = 'left'
-            # up = self._buttons_state[key]
-            self.send_button(key, False)
-            time.sleep(0.1)
-            self.send_button(key, True)
-        else:
-            time.sleep(0.1)
+            self.send_button(key, self._buttons_state[key])
+
+        time.sleep(0.04)
 
         game_info = self._get_game_info()
         if not game_info or not game_info['player'] or not game_info['opponent']:
@@ -135,12 +132,12 @@ class BrowserEnvironment(HXController):
             game_info['ball']['position']['y'],
             game_info['ball']['velocity']['x'],
             game_info['ball']['velocity']['y'],
-            # int(self._buttons_state['left']),
-            # int(self._buttons_state['right']),
-            # int(self._buttons_state['up']),
-            # int(self._buttons_state['down']),
-            # int(self._buttons_state['space']),
-            distanza_alla_palla,
+            int(self._buttons_state['left']),
+            int(self._buttons_state['right']),
+            int(self._buttons_state['up']),
+            int(self._buttons_state['down']),
+            int(self._buttons_state['space']),
+            # distanza_alla_palla,
             float(campo_bloccato)
         ]
 

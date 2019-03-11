@@ -36,7 +36,7 @@ class QLearning:
         self.sess = tf.InteractiveSession()
         keras.backend.set_session(self.sess)
 
-        self.n_inputs = 14
+        self.n_inputs = 18
         self.n_actions = 6
 
         self.state_dim = (self.n_inputs,)
@@ -172,7 +172,7 @@ class QLearning:
             self.exp_replay.add(inverted_prev_state, inverted_action, r, inverted_next_s, done)
 
         # train
-        if step_number % 10 == 0 and step_number > 0:
+        if step_number % 20 == 0 and step_number > 0:
             _, loss_t = self.sess.run([self.train_step, self.td_loss], self.sample_batch(self.exp_replay, batch_size=256))
             try:
                 logging.info('Step: %s, Training iteration, mean_reward: %d, loss: %s' % (self.step_number, round(np.mean(self.rewards_history)), loss_t))
@@ -180,13 +180,13 @@ class QLearning:
             except:
                 pass
 
-            if step_number % 100 == 0:
+            if step_number % 1000 == 0:
                 self.rewards_history = []
 
                 # td_loss_history.append(loss_t)
 
                 # adjust agent parameters
-                if step_number % 1000 == 0:
+                if step_number % 10000 == 0:
                     self.load_weigths_into_target_network(self.agent, self.target_network)
                     self.agent.epsilon = max(self.agent.epsilon * 0.995, 0.01)
                     logging.info('Aggiono la target Q-function, new epsilon: %s' % self.agent.epsilon)
