@@ -6,8 +6,6 @@ import random
 import time
 import traceback
 from threading import Lock
-
-from brumium import ChromeTab
 from hx_controller import HXController
 import tensorflow as tf
 import keras
