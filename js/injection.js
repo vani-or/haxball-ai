@@ -24,7 +24,8 @@ function getHxInfo(player_name)
     {
         window.subwindow = document.getElementsByTagName("iframe")[0].contentWindow;
     }
-    var L = subwindow.tutti_i_dati.L;
+    // var L = subwindow.tutti_i_dati.L;
+    var L = subwindow._this.Pa; // i dati real-time
     var player_index = -1;
     var opponent_index = -1;
 
@@ -84,6 +85,10 @@ function getHxInfo(player_name)
             L.H.U.Ed,
             L.H.U.Dd,
         ],
+        init: {
+            team: L.H.Jd.o,
+            started: L.H.zb
+        }
     };
 }
 function sendHxCommand(event, key, code, keyCode) {

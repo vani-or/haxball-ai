@@ -34,6 +34,15 @@ Il punteggio attuale
 Il punteggio massimo
 
     L.H.fb
+    
+Chi tocca a iniziare
+
+    L.H.Jd.o -> Red
+    
+Ha già toccato la palla?
+
+    L.H.zb -> 1/0 (sì/no)
+
 
 #### Il campo
 
