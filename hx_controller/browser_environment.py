@@ -74,7 +74,7 @@ class BrowserEnvironment(HXController):
                     key = 'left'
             self.send_button(key, self._buttons_state[key])
 
-        time.sleep(0.075)
+        time.sleep(0.04)
 
         game_info = self._get_game_info()
         if not game_info or not game_info['player'] or not game_info['opponent']:

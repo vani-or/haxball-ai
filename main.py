@@ -112,5 +112,6 @@ if __name__ == '__main__':
         t = Thread(target=run_hx, args=(hx, ))
         t.start()
 
-    time.sleep(1000000)
+    while True:
+        time.sleep(60)
     # tab.close()
