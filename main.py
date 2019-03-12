@@ -111,7 +111,6 @@ if __name__ == '__main__':
     for hx in hx_controllers:
         t = Thread(target=run_hx, args=(hx, ))
         t.start()
-        break
 
     while True:
         time.sleep(60)
