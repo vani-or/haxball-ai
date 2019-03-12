@@ -151,6 +151,8 @@ class BrowserEnvironment(HXController):
         new_state[7] *= -1  # ['opponent']['velocity']['y']
         new_state[9] *= -1  # ['ball']['position']['y']
         new_state[11] *= -1  # ['ball']['velocity']['y']
+        new_state[14] = 1 - new_state[14]  # self._buttons_state['up']
+        new_state[15] = 1 - new_state[15]  # self._buttons_state['down']
 
         return new_state
 

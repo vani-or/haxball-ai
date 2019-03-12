@@ -184,9 +184,9 @@ class QLearning:
                 # td_loss_history.append(loss_t)
 
                 # adjust agent parameters
-                if step_number % 10000 == 0:
+                if step_number % 2000 == 0:
                     self.load_weigths_into_target_network(self.agent, self.target_network)
-                    self.agent.epsilon = max(self.agent.epsilon * 0.995, 0.01)
+                    self.agent.epsilon = max(self.agent.epsilon * 0.999, 0.01)
                     logging.info('Aggiono la target Q-function, new epsilon: %s' % self.agent.epsilon)
                     with self.io_lock:
                         # self.agent.save_model()
