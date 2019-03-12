@@ -19,7 +19,7 @@ class ReplayBuffer(object):
         self._storage = []
         self._maxsize = int(size)
         self._next_idx = 0
-        previous_buffers = sorted(os.listdir('buffers'))
+        previous_buffers = sorted([x for x in os.listdir('buffers') if '.pkl' in x])
         if previous_buffers:
             with open('buffers/' + previous_buffers[-1], 'rb') as fp:
                 self._storage = pickle.load(fp)
