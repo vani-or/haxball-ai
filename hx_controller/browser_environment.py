@@ -59,6 +59,15 @@ class BrowserEnvironment(HXController):
 
         self.score = initial_info['score']
         self.red_team = initial_info['player']['team'] == 'Red'
+        self.not_started_yet = 0
+
+    @classmethod
+    def prodotto_scalare(cls, a, b):
+        return (a[0] * b[0] + a[1] * b[1]) / cls.lung(a) / cls.lung(b)
+
+    @classmethod
+    def lung(cls, a):
+        return math.sqrt(a[0] ** 2 + a[1] ** 2)
 
     def step(self, action):
         if action in self.action_2_button:
@@ -98,23 +107,40 @@ class BrowserEnvironment(HXController):
         else:
             campo_bloccato = game_info['init']['team'] == 'Blue' and not game_info['init']['started']
 
-        reward = -math.sqrt((game_info['ball']['position']['x'] + game_info['field_size'][0]) ** 2 + game_info['ball']['position']['y'] ** 2)
-        distanza_alla_palla = math.sqrt((game_info['ball']['position']['x'] - game_info['player']['position']['x']) ** 2 + (game_info['ball']['position']['y'] - game_info['player']['position']['y']) ** 2)
-        reward += -distanza_alla_palla/2
-        # reward += -100 * game_info['ball']['velocity']['x']
+        reward = 0
+        # La distanza dalla palla alla porta dell'avversario
+        reward -= math.sqrt((game_info['ball']['position']['x'] + game_info['field_size'][0]) ** 2 + game_info['ball']['position']['y'] ** 2)
+
+        # Distanza dal giocatore alla palla (divisa per due)
+        reward -= math.sqrt((game_info['ball']['position']['x'] - game_info['player']['position']['x']) ** 2 + (game_info['ball']['position']['y'] - game_info['player']['position']['y']) ** 2) / 2
+
+        # Velocità della palla verso la porta dell'avversario (però, va pensato bene, forse si deve contare solo i casi quando è il giocatore tocca la palla, ma non l'avversario)
+        # vett_palla_porta = (game_info['field_size'][0] + game_info['ball']['position']['x'], game_info['ball']['position']['y'])
+        # reward += self.prodotto_scalare(vett_palla_porta, (-game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']))
+
+        # Penalità se il giocatore e "davanti" alla palla
         if game_info['player']['position']['x'] < game_info['ball']['position']['x']:
             reward -= (game_info['ball']['position']['x'] - game_info['player']['position']['x'])
 
+        # Se il giocatore deve cominciare la partità facciamo la penalità incrementale
+        if game_info['player']['team'] == game_info['init']['team'] and not game_info['init']['started']:
+            reward -= 0.25 * self.not_started_yet
+            self.not_started_yet += 1
+        else:
+            self.not_started_yet = 0
+
         done = False
+        # Anche qua, forse non va aggiunto sempre
         goal_reward = 0
-        if self.score[0] < game_info['score'][0]:
-            goal_reward = -10000
-            done = True
-        elif self.score[1] < game_info['score'][1]:
-            goal_reward = 10000
-            done = True
-        if self.red_team:
-            goal_reward *= -1
+        if game_info['score'][0] != 0 or game_info['score'][1] != 0:
+            if self.score[0] < game_info['score'][0]:
+                goal_reward = -10000
+                done = True
+            elif self.score[1] < game_info['score'][1]:
+                goal_reward = 10000
+                done = True
+            if self.red_team:
+                goal_reward *= -1
         reward += goal_reward
 
         self.score = game_info['score']
