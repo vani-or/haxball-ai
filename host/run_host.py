@@ -8,7 +8,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.WARNING, format='%(levelname)s\t%(asctime)s (%(threadName)-9s) %(message)s')
 
     url = 'https://html5.haxball.com/headless'
-    print('please get a token from https://www.haxball.com/rs/api/getheadlesstoken')
+    print('please get a token from https://www.haxball.com/headlesstoken')
     token = input('Please enter then token: ')  # https://www.haxball.com/headlesstoken
 
     print('Ok, waiting for chrome...')

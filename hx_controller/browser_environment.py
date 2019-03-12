@@ -132,13 +132,13 @@ class BrowserEnvironment(HXController):
             game_info['ball']['position']['y'],
             game_info['ball']['velocity']['x'],
             game_info['ball']['velocity']['y'],
-            int(self._buttons_state['left']),
-            int(self._buttons_state['right']),
-            int(self._buttons_state['up']),
-            int(self._buttons_state['down']),
+            int(self._buttons_state['left']) if not self.red_team else int(self._buttons_state['right']),
+            int(self._buttons_state['right']) if not self.red_team else int(self._buttons_state['left']),
+            int(self._buttons_state['up']) if not self.red_team else int(self._buttons_state['down']),
+            int(self._buttons_state['down']) if not self.red_team else int(self._buttons_state['up']),
             int(self._buttons_state['space']),
             # distanza_alla_palla,
-            float(campo_bloccato)
+            int(campo_bloccato)
         ]
 
         return state, reward, done
@@ -151,8 +151,9 @@ class BrowserEnvironment(HXController):
         new_state[7] *= -1  # ['opponent']['velocity']['y']
         new_state[9] *= -1  # ['ball']['position']['y']
         new_state[11] *= -1  # ['ball']['velocity']['y']
-        new_state[14] = 1 - new_state[14]  # self._buttons_state['up']
-        new_state[15] = 1 - new_state[15]  # self._buttons_state['down']
+        t = new_state[14]
+        new_state[14] = new_state[15]  # self._buttons_state['up']
+        new_state[15] = t  # self._buttons_state['down']
 
         return new_state
 
