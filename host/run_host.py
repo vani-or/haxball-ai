@@ -1,6 +1,8 @@
 import logging
 import time
 import os
+
+from config.config import settings
 from hx_controller.chrome import Chrome
 
 
@@ -20,7 +22,7 @@ if __name__ == '__main__':
 
     cur_path = os.path.dirname(os.path.realpath(__file__))
     with open(cur_path + '/init.js', 'r') as fp:
-        js = fp.read().replace('__TOKEN__', token)
+        js = fp.read().replace('__TOKEN__', token).replace('__PASSWORD__', settings['ROOM_PASSWORD'])
         tab.Runtime.evaluate(expression=js)
 
     while True:

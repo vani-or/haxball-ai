@@ -70,10 +70,9 @@ if __name__ == '__main__':
 
         username = names.get_full_name(gender=random.choice(['male', 'female']))
         usernames.append(username)
-        password = 'hellokitty'
 
         while True:
-            res = tab.Runtime.evaluate(expression="login('%s', '%s');" % (username, password))
+            res = tab.Runtime.evaluate(expression="login('%s', '%s');" % (username, settings['ROOM_PASSWORD']))
             if 'result' in res and 'value' in res['result'] and res['result']['value']:
                 break
             time.sleep(0.1)

@@ -92,12 +92,8 @@ class BrowserEnvironment(HXController):
         return math.sqrt(a[0] ** 2 + a[1] ** 2)
 
     def step(self, action):
-        # Lasciare tutti i bottoni premuti
-        for key, pressed in self._buttons_state.items():
-            if pressed:
-                self.send_button(key, up=True)
-
-        # Premere i bottoni giusti
+        # Capire quali bottoni da premere
+        keys_to_press = []
         if action in self.action_2_button:
             for key in self.action_2_button[action]:
                 if self.red_team:
@@ -109,6 +105,20 @@ class BrowserEnvironment(HXController):
                         key = 'right'
                     elif key == 'right':
                         key = 'left'
+                keys_to_press.append(key)
+
+        # Lasciare lo spazio (in ogni caso)
+        if self._buttons_state['space']:
+            self.send_button('space', up=True)
+
+        # Lasciare tutti i bottoni premuti
+        for key, pressed in self._buttons_state.items():
+            if pressed and key not in keys_to_press:
+                self.send_button(key, up=True)
+
+        # Premere i bottoni giusti
+        for key in keys_to_press:
+            if not self._buttons_state[key]:
                 self.send_button(key, up=False)
 
         # Aspetto l'effeto dell'azione

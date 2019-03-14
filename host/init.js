@@ -1,6 +1,6 @@
 // 1. Ottenere il token https://www.haxball.com/rs/api/getheadlesstoken
 // 2. Aprire nel browser: https://html5.haxball.com/headless
-var room = HBInit({ roomName: "Ciao room", maxPlayers: 12, password: "hellokitty", token: "__TOKEN__", public: 0});
+var room = HBInit({ roomName: "Ciao room", maxPlayers: 12, password: "__PASSWORD__", token: "__TOKEN__", public: 0});
 room.setDefaultStadium("Classic");
 room.setScoreLimit(14);
 room.setTimeLimit(0);

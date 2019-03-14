@@ -13,4 +13,6 @@ settings = {
     'TARGET_Q_FUNCTION_UPDATE_STEP_NUMBER': 2000,
 
     'ADAM_LEARNING_RATE': 1e-3,
+
+    'ROOM_PASSWORD': 'hellokitty',
 }
