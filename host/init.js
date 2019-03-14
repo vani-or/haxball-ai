@@ -5,7 +5,7 @@ room.setDefaultStadium("Classic");
 room.setScoreLimit(14);
 room.setTimeLimit(0);
 
-room.onGameStop = function(p) {room.startGame()};
+room.onGameStop = function(p) {room.startGame();};
 room.onRoomLink = function(url) {window.url = url;};
 room.onPlayerJoin = function(player) {
     if(player.name.includes('ciao'))

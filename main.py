@@ -3,6 +3,8 @@ import random
 import time
 import base64
 from threading import Thread
+
+from config.config import settings
 from hx_controller import HXController
 import os
 import names
@@ -82,7 +84,7 @@ if __name__ == '__main__':
         hx_controllers.append(hx)
 
     # Qlearning instance
-    qlearning = QLearning(buffer_size=1e6)
+    qlearning = QLearning(buffer_size=settings['EXP_REPLAY_BUFFER_SIZE'])
 
     def run_hx(hx: BrowserEnvironment):
         prev_state = None
@@ -112,6 +114,12 @@ if __name__ == '__main__':
         t = Thread(target=run_hx, args=(hx, ))
         t.start()
 
-    while True:
-        time.sleep(60)
+    try:
+        while True:
+            time.sleep(60)
+    except (KeyboardInterrupt, SystemExit) as e:
+        print('Exiting... un momento solo, faccio seriliazzazione')
+        qlearning.serialize()
+        qlearning.exp_replay.serialize()
+        print('Ciao!')
     # tab.close()

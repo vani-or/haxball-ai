@@ -3,6 +3,8 @@ import time
 from copy import copy
 
 from pychrome.tab import Tab
+
+from config.config import settings
 from hx_controller import HXController
 
 
@@ -21,36 +23,56 @@ class BrowserEnvironment(HXController):
             9:  posizione y della palla
             10: velocità x della palla
             11: velocità y della palla
-            12: bottone LEFT premuto (bool)
-            13: bottone RIGHT premuto (bool)
-            14: bottone UP premuto (bool)
-            15: bottone DOWN premuto (bool)
-            16: bottone SPACE premuto (bool)
+            # 12: bottone LEFT premuto (bool)
+            # 13: bottone RIGHT premuto (bool)
+            # 14: bottone UP premuto (bool)
+            # 15: bottone DOWN premuto (bool)
+            # 16: bottone SPACE premuto (bool)
 
-            # 12: distanza dal giocatore alla palla
-            17: campo bloccato (1 se l'avversario deve ancora toccare la palla, 0 - se lo deve il giocatore o la partita è già iniziata)
+            12: distanza dal giocatore alla palla
+            13: campo bloccato (1 se l'avversario deve ancora toccare la palla, 0 - se lo deve il giocatore o la partita è già iniziata)
 
         Output (Azioni):
             0: NULL (aspettare / non fare niente)
-            1: Cambiare lo stato del bottone LEFT
-            2: Cambiare lo stato del bottone RIGHT
-            3: Cambiare lo stato del bottone UP
-            4: Cambiare lo stato del bottone DOWN
-            5: Cambiare lo stato del bottone SPACE
+            # 1: Cambiare lo stato del bottone LEFT
+            # 2: Cambiare lo stato del bottone RIGHT
+            # 3: Cambiare lo stato del bottone UP
+            # 4: Cambiare lo stato del bottone DOWN
+            # 5: Cambiare lo stato del bottone SPACE
             # 1: premere LEFT per 100ms
             # 2: premere RIGHT per 100ms
             # 3: premere UP per 100ms
             # 4: premere DOWN per 100ms
             # 5: premere SPACE per 100ms
+            1: Premere UP
+            2: Premere UP & RIGHT
+            3: Premere RIGHT
+            4: Premere RIGHT & DOWN
+            5: Premere DOWN
+            6: Premere DOWN & LEFT
+            7: Premere LEFT
+            8: Premere LEFT & UP
+            9: Premere SPACE (fino a t+1)
     """
     def __init__(self, browser_tab: Tab, username: str) -> None:
         super().__init__(browser_tab, username)
+        # self.action_2_button = {
+        #     1: 'left',
+        #     2: 'right',
+        #     3: 'up',
+        #     4: 'down',
+        #     5: 'space',
+        # }
         self.action_2_button = {
-            1: 'left',
-            2: 'right',
-            3: 'up',
-            4: 'down',
-            5: 'space',
+            1: ('up', ),
+            2: ('up', 'right'),
+            3: ('right', ),
+            4: ('right', 'down'),
+            5: ('down', ),
+            6: ('down', 'left'),
+            7: ('left', ),
+            8: ('left', 'up'),
+            9: ('space', ),
         }
         initial_info = None
         while initial_info is None or not initial_info['player']:
@@ -70,25 +92,34 @@ class BrowserEnvironment(HXController):
         return math.sqrt(a[0] ** 2 + a[1] ** 2)
 
     def step(self, action):
+        # Lasciare tutti i bottoni premuti
+        for key, pressed in self._buttons_state.items():
+            if pressed:
+                self.send_button(key, up=True)
+
+        # Premere i bottoni giusti
         if action in self.action_2_button:
-            key = self.action_2_button[action]
-            if self.red_team:
-                if key == 'up':
-                    key = 'down'
-                elif key == 'down':
-                    key = 'up'
-                elif key == 'left':
-                    key = 'right'
-                elif key == 'right':
-                    key = 'left'
-            self.send_button(key, self._buttons_state[key])
+            for key in self.action_2_button[action]:
+                if self.red_team:
+                    if key == 'up':
+                        key = 'down'
+                    elif key == 'down':
+                        key = 'up'
+                    elif key == 'left':
+                        key = 'right'
+                    elif key == 'right':
+                        key = 'left'
+                self.send_button(key, up=False)
 
-        time.sleep(0.04)
+        # Aspetto l'effeto dell'azione
+        time.sleep(settings['REWARD_WAIT_TIME'])
 
+        # Ottengo l'info del gioco dal JavaScript
         game_info = self._get_game_info()
         if not game_info or not game_info['player'] or not game_info['opponent']:
             return
 
+        # Se è necessario inverto subito tutte le coordinate per giocare sempre la stessa squadra (Blue)
         self.red_team = game_info['player']['team'] == 'Red'
         if self.red_team:
             game_info['player']['position']['x'] *= -1
@@ -107,14 +138,20 @@ class BrowserEnvironment(HXController):
         else:
             campo_bloccato = game_info['init']['team'] == 'Blue' and not game_info['init']['started']
 
+        # # # # # REWARD # # # # #
         reward = 0
-        # La distanza dalla palla alla porta dell'avversario
+
+        # La distanza dalla palla alla porta dell'avversario (penalità)
         reward -= math.sqrt((game_info['ball']['position']['x'] + game_info['field_size'][0]) ** 2 + game_info['ball']['position']['y'] ** 2)
 
-        # Distanza dal giocatore alla palla (divisa per due)
-        reward -= math.sqrt((game_info['ball']['position']['x'] - game_info['player']['position']['x']) ** 2 + (game_info['ball']['position']['y'] - game_info['player']['position']['y']) ** 2) / 2
+        # La distanza dalla palla alla porta del giocatore (premio piccolo)
+        reward += 0.1 * math.sqrt((game_info['field_size'][0] - game_info['ball']['position']['x']) ** 2 + game_info['ball']['position']['y'] ** 2)
 
-        # Velocità della palla verso la porta dell'avversario (però, va pensato bene, forse si deve contare solo i casi quando è il giocatore tocca la palla, ma non l'avversario)
+        # Distanza dal giocatore alla palla (divisa per due) (penalità)
+        distanza_alla_palla = math.sqrt((game_info['ball']['position']['x'] - game_info['player']['position']['x']) ** 2 + (game_info['ball']['position']['y'] - game_info['player']['position']['y']) ** 2)
+        reward -= distanza_alla_palla / 2
+
+        # Velocità della palla verso la porta dell'avversario (però, va pensato bene, forse si deve contare solo i casi quando è il giocatore che tocca la palla, ma non l'avversario)
         # vett_palla_porta = (game_info['field_size'][0] + game_info['ball']['position']['x'], game_info['ball']['position']['y'])
         # reward += self.prodotto_scalare(vett_palla_porta, (-game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']))
 
@@ -158,12 +195,12 @@ class BrowserEnvironment(HXController):
             game_info['ball']['position']['y'],
             game_info['ball']['velocity']['x'],
             game_info['ball']['velocity']['y'],
-            int(self._buttons_state['left']) if not self.red_team else int(self._buttons_state['right']),
-            int(self._buttons_state['right']) if not self.red_team else int(self._buttons_state['left']),
-            int(self._buttons_state['up']) if not self.red_team else int(self._buttons_state['down']),
-            int(self._buttons_state['down']) if not self.red_team else int(self._buttons_state['up']),
-            int(self._buttons_state['space']),
-            # distanza_alla_palla,
+            # int(self._buttons_state['left']) if not self.red_team else int(self._buttons_state['right']),
+            # int(self._buttons_state['right']) if not self.red_team else int(self._buttons_state['left']),
+            # int(self._buttons_state['up']) if not self.red_team else int(self._buttons_state['down']),
+            # int(self._buttons_state['down']) if not self.red_team else int(self._buttons_state['up']),
+            # int(self._buttons_state['space']),
+            distanza_alla_palla,
             int(campo_bloccato)
         ]
 
@@ -177,15 +214,28 @@ class BrowserEnvironment(HXController):
         new_state[7] *= -1  # ['opponent']['velocity']['y']
         new_state[9] *= -1  # ['ball']['position']['y']
         new_state[11] *= -1  # ['ball']['velocity']['y']
-        t = new_state[14]
-        new_state[14] = new_state[15]  # self._buttons_state['up']
-        new_state[15] = t  # self._buttons_state['down']
+        # t = new_state[14]
+        # new_state[14] = new_state[15]  # self._buttons_state['up']
+        # new_state[15] = t  # self._buttons_state['down']
 
         return new_state
 
     def invert_action(self, action):
-        if action == 3:
-            return 4
+        # if action == 3:
+        #     return 4
+        # elif action == 4:
+        #     return 3
+        # return action
+        if action == 1:  # up
+            return 5  # down
+        elif action == 2:  # up & right
+            return 4  # right & down
         elif action == 4:
-            return 3
+            return 2
+        elif action == 5:
+            return 1
+        elif action == 6:  # down & left
+            return 8  # left & up
+        elif action == 8:
+            return 6
         return action
