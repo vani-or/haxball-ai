@@ -30,7 +30,8 @@ class BrowserEnvironment(HXController):
             # 16: bottone SPACE premuto (bool)
 
             12: distanza dal giocatore alla palla
-            13: campo bloccato (1 se l'avversario deve ancora toccare la palla, 0 - se lo deve il giocatore o la partita è già iniziata)
+            13: no kick steps
+            14: campo bloccato (1 se l'avversario deve ancora toccare la palla, 0 - se lo deve il giocatore o la partita è già iniziata)
 
         Output (Azioni):
             0: NULL (aspettare / non fare niente)
@@ -172,21 +173,22 @@ class BrowserEnvironment(HXController):
             reward -= (game_info['ball']['position']['x'] - game_info['player']['position']['x'])
 
         # Penalità della velocità decrescente della palla (solo se il gioco è già cominciato)
-        # if game_info['init']['started']:
-        #     velocity2 = game_info['ball']['velocity']['x'] ** 2 + game_info['ball']['velocity']['y'] ** 2
-        #     if velocity2 <= self.last_velocity2:
-        #         reward -= 0.01 * self.no_kick_steps
-        #         self.no_kick_steps += 1
-        #     else:
-        #         self.no_kick_steps = 0
-        #     self.last_velocity2 = velocity2
-
-        # Se il giocatore deve cominciare la partità facciamo la penalità incrementale
-        if game_info['player']['team'] == game_info['init']['team'] and not game_info['init']['started']:
-            reward -= 0.01 * self.not_started_yet
-            self.not_started_yet += 1
+        if game_info['init']['started']:
+            # velocity2 = game_info['ball']['velocity']['x'] ** 2 + game_info['ball']['velocity']['y'] ** 2
+            # if velocity2 <= self.last_velocity2:
+            #     reward -= 0.1 * self.no_kick_steps
+            #     self.no_kick_steps += 1
+            # else:
+            #     self.no_kick_steps = 0
+            # self.last_velocity2 = velocity2
+            pass
         else:
-            self.not_started_yet = 0
+            # Se il giocatore deve cominciare la partità facciamo la penalità incrementale
+            if game_info['player']['team'] == game_info['init']['team']:
+                reward -= 0.1 * self.no_kick_steps
+                self.no_kick_steps += 1
+            else:
+                self.no_kick_steps = 0
 
         done = False
         # Anche qua, forse non va aggiunto sempre
@@ -223,6 +225,7 @@ class BrowserEnvironment(HXController):
             # int(self._buttons_state['down']) if not self.red_team else int(self._buttons_state['up']),
             # int(self._buttons_state['space']),
             distanza_alla_palla,
+            self.no_kick_steps,
             int(campo_bloccato)
         ]
 
