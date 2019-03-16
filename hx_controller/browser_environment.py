@@ -178,7 +178,7 @@ class BrowserEnvironment(HXController):
                 reward -= 0.25 * self.no_kick_steps
                 self.no_kick_steps += 1
             else:
-                self.low_velocity_steps = 0
+                self.no_kick_steps = 0
             self.last_velocity2 = velocity2
 
         # Se il giocatore deve cominciare la partità facciamo la penalità incrementale
