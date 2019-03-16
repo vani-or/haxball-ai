@@ -86,8 +86,8 @@ class BrowserEnvironment(HXController):
         self.last_velocity2 = float('Inf')
 
     @classmethod
-    def prodotto_scalare(cls, a, b):
-        return (a[0] * b[0] + a[1] * b[1]) / cls.lung(a) / cls.lung(b)
+    def proj_a_on_b(cls, a, b):
+        return (a[0] * b[0] + a[1] * b[1]) / cls.lung(b)
 
     @classmethod
     def lung(cls, a):
@@ -164,26 +164,26 @@ class BrowserEnvironment(HXController):
         reward -= distanza_alla_palla / 2
 
         # Velocità della palla verso la porta dell'avversario (però, va pensato bene, forse si deve contare solo i casi quando è il giocatore che tocca la palla, ma non l'avversario)
-        # vett_palla_porta = (game_info['field_size'][0] + game_info['ball']['position']['x'], game_info['ball']['position']['y'])
-        # reward += self.prodotto_scalare(vett_palla_porta, (-game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']))
+        vett_palla_porta = (game_info['field_size'][0] + game_info['ball']['position']['x'], game_info['ball']['position']['y'])
+        reward += 50 * self.proj_a_on_b((-game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']), vett_palla_porta)
 
         # Penalità se il giocatore e "davanti" alla palla
         if game_info['player']['position']['x'] < game_info['ball']['position']['x']:
             reward -= (game_info['ball']['position']['x'] - game_info['player']['position']['x'])
 
         # Penalità della velocità decrescente della palla (solo se il gioco è già cominciato)
-        if game_info['init']['started']:
-            velocity2 = game_info['ball']['velocity']['x'] ** 2 + game_info['ball']['velocity']['y'] ** 2
-            if velocity2 <= self.last_velocity2:
-                reward -= 0.25 * self.no_kick_steps
-                self.no_kick_steps += 1
-            else:
-                self.no_kick_steps = 0
-            self.last_velocity2 = velocity2
+        # if game_info['init']['started']:
+        #     velocity2 = game_info['ball']['velocity']['x'] ** 2 + game_info['ball']['velocity']['y'] ** 2
+        #     if velocity2 <= self.last_velocity2:
+        #         reward -= 0.01 * self.no_kick_steps
+        #         self.no_kick_steps += 1
+        #     else:
+        #         self.no_kick_steps = 0
+        #     self.last_velocity2 = velocity2
 
         # Se il giocatore deve cominciare la partità facciamo la penalità incrementale
         if game_info['player']['team'] == game_info['init']['team'] and not game_info['init']['started']:
-            reward -= 0.25 * self.not_started_yet
+            reward -= 0.01 * self.not_started_yet
             self.not_started_yet += 1
         else:
             self.not_started_yet = 0
