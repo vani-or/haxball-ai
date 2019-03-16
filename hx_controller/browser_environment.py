@@ -174,7 +174,7 @@ class BrowserEnvironment(HXController):
         # Penalità della velocità decrescente della palla (solo se il gioco è già cominciato)
         if game_info['init']['started']:
             velocity2 = game_info['ball']['velocity']['x'] ** 2 + game_info['ball']['velocity']['y'] ** 2
-            if velocity2 < self.last_velocity2:
+            if velocity2 <= self.last_velocity2:
                 reward -= 0.25 * self.no_kick_steps
                 self.no_kick_steps += 1
             else:
