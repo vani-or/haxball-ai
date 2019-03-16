@@ -82,6 +82,8 @@ class BrowserEnvironment(HXController):
         self.score = initial_info['score']
         self.red_team = initial_info['player']['team'] == 'Red'
         self.not_started_yet = 0
+        self.no_kick_steps = 0
+        self.last_velocity = float('Inf')
 
     @classmethod
     def prodotto_scalare(cls, a, b):
@@ -168,6 +170,16 @@ class BrowserEnvironment(HXController):
         # Penalità se il giocatore e "davanti" alla palla
         if game_info['player']['position']['x'] < game_info['ball']['position']['x']:
             reward -= (game_info['ball']['position']['x'] - game_info['player']['position']['x'])
+
+        # Penalità della velocità decrescente della palla (solo se il gioco è già cominciato)
+        if game_info['init']['started']:
+            velocity2 = game_info['ball']['velocity']['x'] ** 2 + game_info['ball']['velocity']['y'] ** 2
+            if velocity2 < self.last_velocity2:
+                reward -= 0.25 * self.no_kick_steps
+                self.no_kick_steps += 1
+            else:
+                self.low_velocity_steps = 0
+            self.last_velocity2 = velocity2
 
         # Se il giocatore deve cominciare la partità facciamo la penalità incrementale
         if game_info['player']['team'] == game_info['init']['team'] and not game_info['init']['started']:

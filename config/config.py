@@ -1,5 +1,5 @@
 settings = {
-    'GAMMA': 0.99,
+    'GAMMA': 0.999,
     'EPSILON_0': 0.5,
     'EPSILON_DISCOUNT_COEF': 0.999,
     'EPSILON_MIN_VALUE': 0.01,
@@ -8,8 +8,8 @@ settings = {
 
     'REWARD_WAIT_TIME': 0.04,  # secondi
 
-    'LEARNING_BATCH_SIZE': 128,
-    'LEARNING_STEP_NUMBER': 5,
+    'LEARNING_BATCH_SIZE': 256,
+    'LEARNING_STEP_NUMBER': 2,
     'TARGET_Q_FUNCTION_UPDATE_STEP_NUMBER': 2000,
 
     'ADAM_LEARNING_RATE': 1e-3,
