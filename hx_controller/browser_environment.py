@@ -83,7 +83,7 @@ class BrowserEnvironment(HXController):
         self.red_team = initial_info['player']['team'] == 'Red'
         self.not_started_yet = 0
         self.no_kick_steps = 0
-        self.last_velocity = float('Inf')
+        self.last_velocity2 = float('Inf')
 
     @classmethod
     def prodotto_scalare(cls, a, b):
