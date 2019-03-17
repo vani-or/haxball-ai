@@ -3,10 +3,11 @@ import math
 import os
 import pickle
 import random
+import curses
 import time
 import traceback
 from threading import Lock
-
+import sys
 from config.config import settings
 from hx_controller import HXController
 import tensorflow as tf
@@ -17,6 +18,7 @@ from keras.models import load_model
 
 from hx_controller.browser_environment import BrowserEnvironment
 from hx_controller.dqa import DQNAgent
+from hx_controller.prioritized_replay_buffer import NaivePrioritizedBuffer
 from hx_controller.replay_buffer import ReplayBuffer
 
 
@@ -30,13 +32,14 @@ class Singleton(type):
 
 
 class QLearning:
-    def __init__(self, buffer_size=1e4) -> None:
+    def __init__(self, buffer_size=1e4, stdscr=None) -> None:
+        self.stdscr = stdscr
         tf.reset_default_graph()
         self.graph = tf.get_default_graph()
         self.sess = tf.InteractiveSession()
         keras.backend.set_session(self.sess)
 
-        self.n_inputs = 15
+        self.n_inputs = 14
         self.n_actions = 10
 
         self.state_dim = (self.n_inputs,)
@@ -44,7 +47,8 @@ class QLearning:
         self.agent = DQNAgent("dqn_agent", self.state_dim, self.n_actions, epsilon=settings['EPSILON_0'])
         self.target_network = DQNAgent("target_network", self.state_dim, self.n_actions)
 
-        self.exp_replay = ReplayBuffer(buffer_size)
+        # self.exp_replay = ReplayBuffer(buffer_size)
+        self.exp_replay = NaivePrioritizedBuffer(buffer_size)
 
         # placeholders that will be fed with exp_replay.sample(batch_size)
         self.obs_ph = tf.placeholder(tf.float32, shape=(None,) + self.state_dim)
@@ -52,6 +56,8 @@ class QLearning:
         self.rewards_ph = tf.placeholder(tf.float32, shape=[None])
         self.next_obs_ph = tf.placeholder(tf.float32, shape=(None,) + self.state_dim)
         self.is_done_ph = tf.placeholder(tf.float32, shape=[None])
+        # I pesi per prioritized learning
+        self.weights = tf.placeholder(tf.float32, shape=[None])
 
         self.is_not_done = 1 - self.is_done_ph
         gamma = settings['GAMMA']
@@ -71,9 +77,11 @@ class QLearning:
 
         # Define loss function for sgd.
         self.td_loss = (current_action_qvalues - reference_qvalues) ** 2
+        self.prios = self.td_loss + 1e-5
         self.td_loss = tf.reduce_mean(self.td_loss)
 
         self.train_step = tf.train.AdamOptimizer(settings['ADAM_LEARNING_RATE']).minimize(self.td_loss, var_list=self.agent.weights)
+        # self.train_step = tf.train.GradientDescentOptimizer(settings['ADAM_LEARNING_RATE']).minimize(self.td_loss, var_list=self.agent.weights)
 
         self.sess.run(tf.global_variables_initializer())
         self.saver = tf.train.Saver()
@@ -88,7 +96,7 @@ class QLearning:
         #         _, loss_t = self.sess.run([self.train_step, self.td_loss],
         #                                   self.sample_batch(self.exp_replay, batch_size=128))
         #         logging.debug('Pretrain, loss: %s', repr(loss_t))
-
+        self.last_loss = 0
         self.step_number = 0
         self.rewards_history = []
 
@@ -117,11 +125,16 @@ class QLearning:
             self.saver.restore(self.sess, "session.ckpt")
 
     def sample_batch(self, exp_replay, batch_size):
-        obs_batch, act_batch, reward_batch, next_obs_batch, is_done_batch = self.exp_replay.sample(batch_size)
+        # obs_batch, act_batch, reward_batch, next_obs_batch, is_done_batch = self.exp_replay.sample(batch_size)
+        obs_batch, act_batch, reward_batch, next_obs_batch, is_done_batch, indices, weights = self.exp_replay.sample(batch_size)
         return {
-            self.obs_ph: obs_batch, self.actions_ph: act_batch, self.rewards_ph: reward_batch,
-            self.next_obs_ph: next_obs_batch, self.is_done_ph: is_done_batch
-        }
+            self.obs_ph: obs_batch,
+            self.actions_ph: act_batch,
+            self.rewards_ph: reward_batch,
+            self.next_obs_ph: next_obs_batch,
+            self.is_done_ph: is_done_batch,
+            self.weights: weights,
+        }, indices
 
     def load_weigths_into_target_network(self, agent, target_network):
         """ assign target_network.weights variables to their respective agent.weights values. """
@@ -161,6 +174,16 @@ class QLearning:
 
         next_s, r, done = res
 
+        if self.stdscr is not None:
+            line = 0 if env.red_team else 1
+            team = 'Red ' if env.red_team else 'Blue'
+            self.stdscr.addstr(line, 0, '%s\t%s Reward: %s\tQ-predicted: %s\tStep: %s' % (team, env.action_2_symbol[action], int(r), int(np.max(qvalues)), step_number), curses.color_pair(line + 1))
+            self.stdscr.addstr(2, 0, 'ε: %s\tLoss: %s' % (round(self.agent.epsilon, 4), round(self.last_loss)), curses.color_pair(0))
+            if step_number % 2 == 0:
+                self.stdscr.refresh()
+            if step_number % 500 == 0:
+                self.stdscr.clear()
+
         # logging.debug('%s: Reward: %d, Action: %s, Done: %s' % ('RED' if env.red_team else 'BLUE', round(r, 1), action, done))
 
         with self.io_lock:
@@ -171,14 +194,18 @@ class QLearning:
             inverted_next_s = env.invert_state(next_s)
             self.exp_replay.add(inverted_prev_state, inverted_action, r, inverted_next_s, done)
 
-        # train
-        if step_number % settings['LEARNING_STEP_NUMBER'] == 0 and step_number > 0:
-            _, loss_t = self.sess.run([self.train_step, self.td_loss], self.sample_batch(self.exp_replay, batch_size=settings['LEARNING_BATCH_SIZE']))
-            try:
-                logging.info('Step: %s, Training iteration, mean_reward: %d, loss: %s' % (self.step_number, round(np.mean(self.rewards_history)), loss_t))
-
-            except:
-                pass
+            # train
+            if step_number % settings['LEARNING_STEP_NUMBER'] == 0 and step_number > 0:
+                samples, indices = self.sample_batch(self.exp_replay, batch_size=settings['LEARNING_BATCH_SIZE'])
+                _, loss_t, prios_t = self.sess.run([self.train_step, self.td_loss, self.prios], samples)
+                self.last_loss = loss_t
+                if not np.isnan(loss_t):
+                    self.exp_replay.update_priorities(indices, prios_t)
+            # try:
+            #     logging.info('Step: %s, Training iteration, mean_reward: %d, loss: %s' % (self.step_number, round(np.mean(self.rewards_history)), loss_t))
+            #
+            # except:
+            #     pass
 
         # td_loss_history.append(loss_t)
 
@@ -187,7 +214,7 @@ class QLearning:
             self.rewards_history = []
             self.load_weigths_into_target_network(self.agent, self.target_network)
             self.agent.epsilon = max(self.agent.epsilon * settings['EPSILON_DISCOUNT_COEF'], settings['EPSILON_MIN_VALUE'])
-            logging.info('Aggiono la target Q-function, new epsilon: %s' % self.agent.epsilon)
+            # logging.info('Aggiono la target Q-function, new epsilon: %s' % self.agent.epsilon)
             with self.io_lock:
                 # self.agent.save_model()
                 # self.target_network.save_model()

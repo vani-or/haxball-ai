@@ -75,6 +75,18 @@ class BrowserEnvironment(HXController):
             8: ('left', 'up'),
             9: ('space', ),
         }
+        self.action_2_symbol = {
+            0: ' ',
+            1: '↑',
+            2: '↗',
+            3: '→',
+            4: '↘',
+            5: '↓',
+            6: '↙',
+            7: '←',
+            8: '↖',
+            9: 'S',
+        }
         initial_info = None
         while initial_info is None or not initial_info['player']:
             initial_info = self._get_game_info()
@@ -168,6 +180,9 @@ class BrowserEnvironment(HXController):
         vett_palla_porta = (game_info['field_size'][0] + game_info['ball']['position']['x'], game_info['ball']['position']['y'])
         reward += 50 * self.proj_a_on_b((-game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']), vett_palla_porta)
 
+        # Modulo della velocità (premio), non so cosa faccio per fargli smettere a svilupparsi la paura della palla
+        reward += 20 * self.lung((game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']))
+
         # Penalità se il giocatore e "davanti" alla palla
         if game_info['player']['position']['x'] < game_info['ball']['position']['x']:
             reward -= (game_info['ball']['position']['x'] - game_info['player']['position']['x'])
@@ -184,11 +199,12 @@ class BrowserEnvironment(HXController):
             pass
         else:
             # Se il giocatore deve cominciare la partità facciamo la penalità incrementale
-            if game_info['player']['team'] == game_info['init']['team']:
-                reward -= 0.1 * self.no_kick_steps
-                self.no_kick_steps += 1
-            else:
-                self.no_kick_steps = 0
+            #if game_info['player']['team'] == game_info['init']['team']:
+            #    reward -= 0.1 * self.no_kick_steps
+            #    self.no_kick_steps += 1
+            #else:
+            #    self.no_kick_steps = 0
+            pass
 
         done = False
         # Anche qua, forse non va aggiunto sempre
@@ -225,7 +241,7 @@ class BrowserEnvironment(HXController):
             # int(self._buttons_state['down']) if not self.red_team else int(self._buttons_state['up']),
             # int(self._buttons_state['space']),
             distanza_alla_palla,
-            self.no_kick_steps,
+            # self.no_kick_steps,
             int(campo_bloccato)
         ]
 
