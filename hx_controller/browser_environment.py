@@ -159,9 +159,9 @@ class BrowserEnvironment(HXController):
             game_info['ball']['position']['y'] *= -1
             game_info['ball']['velocity']['x'] *= -1
             game_info['ball']['velocity']['y'] *= -1
-            campo_bloccato = game_info['init']['team'] == 'Red' and not game_info['init']['started']
-        else:
             campo_bloccato = game_info['init']['team'] == 'Blue' and not game_info['init']['started']
+        else:
+            campo_bloccato = game_info['init']['team'] == 'Red' and not game_info['init']['started']
 
         # # # # # REWARD # # # # #
         reward = 0
@@ -177,11 +177,11 @@ class BrowserEnvironment(HXController):
         reward -= distanza_alla_palla / 2
 
         # Velocità della palla verso la porta dell'avversario (però, va pensato bene, forse si deve contare solo i casi quando è il giocatore che tocca la palla, ma non l'avversario)
-        vett_palla_porta = (game_info['field_size'][0] + game_info['ball']['position']['x'], game_info['ball']['position']['y'])
-        reward += 50 * self.proj_a_on_b((-game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']), vett_palla_porta)
+        vett_palla_porta = (-game_info['field_size'][0] - game_info['ball']['position']['x'], -game_info['ball']['position']['y'])
+        reward += 50 * self.proj_a_on_b((game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']), vett_palla_porta)
 
         # Modulo della velocità (premio), non so cosa faccio per fargli smettere a svilupparsi la paura della palla
-        reward += 20 * self.lung((game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']))
+        # reward += 20 * self.lung((game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']))
 
         # Penalità se il giocatore e "davanti" alla palla
         if game_info['player']['position']['x'] < game_info['ball']['position']['x']:
