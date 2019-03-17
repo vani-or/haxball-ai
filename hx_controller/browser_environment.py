@@ -211,10 +211,10 @@ class BrowserEnvironment(HXController):
         goal_reward = 0
         if game_info['score'][0] != 0 or game_info['score'][1] != 0:
             if self.score[0] < game_info['score'][0]:
-                goal_reward = -10000
+                goal_reward = -1000
                 done = True
             elif self.score[1] < game_info['score'][1]:
-                goal_reward = 10000
+                goal_reward = 1000
                 done = True
             if self.red_team:
                 goal_reward *= -1

@@ -34,6 +34,7 @@ class Singleton(type):
 class QLearning:
     def __init__(self, buffer_size=1e4, stdscr=None) -> None:
         self.stdscr = stdscr
+        self.stdscr_refreshes = [time.time()]
         tf.reset_default_graph()
         self.graph = tf.get_default_graph()
         self.sess = tf.InteractiveSession()
@@ -177,10 +178,13 @@ class QLearning:
         if self.stdscr is not None:
             line = 0 if env.red_team else 1
             team = 'Red ' if env.red_team else 'Blue'
+            fps = 2 / np.mean(np.diff(self.stdscr_refreshes))
             self.stdscr.addstr(line, 0, '%s\t%s Reward: %s\tQ-predicted: %s\tStep: %s' % (team, env.action_2_symbol[action], int(r), int(np.max(qvalues)), step_number), curses.color_pair(line + 1))
-            self.stdscr.addstr(2, 0, 'ε: %s\tLoss: %s' % (round(self.agent.epsilon, 4), round(self.last_loss)), curses.color_pair(0))
+            self.stdscr.addstr(2, 0, 'ε: %s\tLoss: %s\tFPS: %s\n' % (round(self.agent.epsilon, 4), round(self.last_loss), round(fps, 1)), curses.color_pair(0))
             if step_number % 2 == 0:
                 self.stdscr.refresh()
+                self.stdscr_refreshes.append(time.time())
+                self.stdscr_refreshes = self.stdscr_refreshes[-100:]
             if step_number % 500 == 0:
                 self.stdscr.clear()
 
