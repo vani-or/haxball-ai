@@ -30,8 +30,8 @@ class BrowserEnvironment(HXController):
             # 16: bottone SPACE premuto (bool)
 
             12: distanza dal giocatore alla palla
-            13: no kick steps
-            14: campo bloccato (1 se l'avversario deve ancora toccare la palla, 0 - se lo deve il giocatore o la partita è già iniziata)
+            # 13: no kick steps
+            13: campo bloccato (1 se l'avversario deve ancora toccare la palla, 0 - se lo deve il giocatore o la partita è già iniziata)
 
         Output (Azioni):
             0: NULL (aspettare / non fare niente)
@@ -126,7 +126,7 @@ class BrowserEnvironment(HXController):
         if self._buttons_state['space']:
             self.send_button('space', up=True)
 
-        # Lasciare tutti i bottoni premuti
+        # Lasciare tutti i bottoni premuti, solo se non sono nel keys_to_press
         for key, pressed in self._buttons_state.items():
             if pressed and key not in keys_to_press:
                 self.send_button(key, up=True)
