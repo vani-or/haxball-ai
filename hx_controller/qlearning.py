@@ -78,6 +78,7 @@ class QLearning:
 
         # Define loss function for sgd.
         self.td_loss = (current_action_qvalues - reference_qvalues) ** 2
+        self.td_loss = self.td_loss * self.weights
         self.prios = self.td_loss + 1e-5
         self.td_loss = tf.reduce_mean(self.td_loss)
 
