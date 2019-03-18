@@ -144,9 +144,9 @@ class BrowserEnvironment(HXController):
             game_info['ball']['position']['y'] *= -1
             game_info['ball']['velocity']['x'] *= -1
             game_info['ball']['velocity']['y'] *= -1
-            campo_bloccato = game_info['init']['team'] == 'Red' and not game_info['init']['started']
-        else:
             campo_bloccato = game_info['init']['team'] == 'Blue' and not game_info['init']['started']
+        else:
+            campo_bloccato = game_info['init']['team'] == 'Red' and not game_info['init']['started']
 
         # # # # # REWARD # # # # #
         reward = 0
@@ -181,10 +181,10 @@ class BrowserEnvironment(HXController):
         goal_reward = 0
         if game_info['score'][0] != 0 or game_info['score'][1] != 0:
             if self.score[0] < game_info['score'][0]:
-                goal_reward = -10000
+                goal_reward = -200
                 done = True
             elif self.score[1] < game_info['score'][1]:
-                goal_reward = 10000
+                goal_reward = 500
                 done = True
             if self.red_team:
                 goal_reward *= -1
