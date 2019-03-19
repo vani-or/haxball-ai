@@ -170,24 +170,23 @@ class BrowserEnvironment(HXController):
             reward -= (game_info['ball']['position']['x'] - game_info['player']['position']['x'])
 
         # Se il giocatore deve cominciare la partità facciamo la penalità incrementale
-        if game_info['player']['team'] == game_info['init']['team'] and not game_info['init']['started']:
-            reward -= 0.25 * self.not_started_yet
-            self.not_started_yet += 1
-        else:
-            self.not_started_yet = 0
+        # if game_info['player']['team'] == game_info['init']['team'] and not game_info['init']['started']:
+        #     reward -= 0.25 * self.not_started_yet
+        #     self.not_started_yet += 1
+        # else:
+        #     self.not_started_yet = 0
 
         done = False
         # Anche qua, forse non va aggiunto sempre
         goal_reward = 0
         if game_info['score'][0] != 0 or game_info['score'][1] != 0:
-            if self.score[0] < game_info['score'][0]:
-                goal_reward = -200
-                done = True
-            elif self.score[1] < game_info['score'][1]:
+            score_index = 0 if self.red_team else 1
+            if self.score[score_index] < game_info['score'][score_index]:
+                # premio, abbiamo segnato
                 goal_reward = 500
-                done = True
-            if self.red_team:
-                goal_reward *= -1
+            elif self.score[1 - score_index] < game_info['score'][1 - score_index]:
+                # penalità, abbiamo subito
+                goal_reward = -200
         reward += goal_reward
 
         self.score = game_info['score']
