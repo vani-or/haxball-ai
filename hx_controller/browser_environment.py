@@ -91,6 +91,11 @@ class BrowserEnvironment(HXController):
     def lung(cls, a):
         return math.sqrt(a[0] ** 2 + a[1] ** 2)
 
+    def release_all_buttons(self):
+        for key, pressed in self._buttons_state.items():
+            if pressed:
+                self.send_button(key, up=True)
+
     def step(self, action):
         # Capire quali bottoni da premere
         keys_to_press = []

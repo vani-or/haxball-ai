@@ -5,7 +5,9 @@ import pickle
 import random
 import time
 import traceback
+from multiprocessing.dummy import Pool
 from threading import Lock
+from typing import List
 
 from config.config import settings
 from hx_controller import HXController
@@ -44,7 +46,7 @@ class QLearning:
         self.agent = DQNAgent("dqn_agent", self.state_dim, self.n_actions, epsilon=settings['EPSILON_0'])
         self.target_network = DQNAgent("target_network", self.state_dim, self.n_actions)
 
-        self.exp_replay = ReplayBuffer(buffer_size)
+        self.exp_replay = ReplayBuffer(int(buffer_size), observation_size=self.n_inputs)
 
         # placeholders that will be fed with exp_replay.sample(batch_size)
         self.obs_ph = tf.placeholder(tf.float32, shape=(None,) + self.state_dim)
@@ -145,26 +147,18 @@ class QLearning:
     #     else:
     #         return np.argmax(q_values)
 
-    def one_step(self, prev_state, env: BrowserEnvironment):
-        with self.io_lock:
-            step_number = self.step_number
-            self.step_number += 1
+    def one_step(self, prev_states: List, envs: List[BrowserEnvironment]):
+        qvalues = self.agent.get_qvalues(self.sess, prev_states)
+        actions = [self.agent.sample_actions(np.expand_dims(qs, axis=0))[0] for qs in qvalues]
 
-        qvalues = self.agent.get_qvalues(self.sess, [prev_state])
-        action = self.agent.sample_actions(qvalues)[0]
+        pool = Pool()
+        next_states_r_done = pool.map(lambda args: args[0].step(args[1]), zip(envs, actions))
 
-        res = env.step(action)
-        if not res:
-            # with self.io_lock:
-            #     self.exp_replay.serialize()
-            return prev_state, None, None
-
-        next_s, r, done = res
-
-        # logging.debug('%s: Reward: %d, Action: %s, Done: %s' % ('RED' if env.red_team else 'BLUE', round(r, 1), action, done))
-
-        with self.io_lock:
-            self.rewards_history.append(r)
+        for i, res in enumerate(next_states_r_done):
+            prev_state = prev_states[i]
+            action = actions[i]
+            env = envs[i]
+            next_s, r, done = res
             self.exp_replay.add(prev_state, action, r, next_s, done)
             inverted_prev_state = env.invert_state(prev_state)
             inverted_action = env.invert_action(action)
@@ -172,38 +166,22 @@ class QLearning:
             self.exp_replay.add(inverted_prev_state, inverted_action, r, inverted_next_s, done)
 
         # train
-        if step_number % settings['LEARNING_STEP_NUMBER'] == 0 and step_number > 0:
+        if self.step_number % settings['LEARNING_STEP_NUMBER'] == 0 and self.step_number > 0:
             _, loss_t = self.sess.run([self.train_step, self.td_loss], self.sample_batch(self.exp_replay, batch_size=settings['LEARNING_BATCH_SIZE']))
             try:
-                logging.info('Step: %s, Training iteration, mean_reward: %d, loss: %s' % (self.step_number, round(np.mean(self.rewards_history)), loss_t))
-
+                logging.info('Step: %s, Training iteration, loss: %s' % (self.step_number, loss_t))
             except:
                 pass
 
-        # td_loss_history.append(loss_t)
-
         # adjust agent parameters
-        if step_number % settings['TARGET_Q_FUNCTION_UPDATE_STEP_NUMBER'] == 0:
-            self.rewards_history = []
+        if self.step_number % settings['TARGET_Q_FUNCTION_UPDATE_STEP_NUMBER'] == 0:
             self.load_weigths_into_target_network(self.agent, self.target_network)
             self.agent.epsilon = max(self.agent.epsilon * settings['EPSILON_DISCOUNT_COEF'], settings['EPSILON_MIN_VALUE'])
             logging.info('Aggiono la target Q-function, new epsilon: %s' % self.agent.epsilon)
-            with self.io_lock:
-                # self.agent.save_model()
-                # self.target_network.save_model()
-                self.serialize()
-            # mean_rw_history.append(evaluate(make_env(), agent, n_games=3))
+            for env in envs:
+                env.release_all_buttons()
+            self.serialize()
 
+        self.step_number += 1
 
-        # a = self.get_action(prev_state, epsilon=epsilon)
-        # next_s, r, done = self.qlearning_step(a)
-        # logging.debug('%s: Reward: %d, Action: %s, Done: %s' % ('RED' if self.red_team else 'BLUE', round(r, 1), a, done))
-        #
-        # if self.network.train:
-        #     with self.network.access_lock:
-        #         self.network.sess.run(self.network.train_step, {
-        #             self.network.states_ph: [prev_state], self.network.actions_ph: [a], self.network.rewards_ph: [r],
-        #             self.network.next_states_ph: [next_s], self.network.is_done_ph: [done]
-        #         })
-
-        return next_s, r, done
+        return next_states_r_done
