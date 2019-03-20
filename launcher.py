@@ -125,6 +125,8 @@ if __name__ == '__main__':
 
     room_links = [room_queue.get() for i in range(n_rooms)]
     print('Ok, all rooms created, urls:\n' + '\n'.join(room_links))
+    with open('rooms.txt', 'w') as fp:
+        fp.writelines(room_links)
 
     # Creazione degli agenti
     players_queue = Queue()
