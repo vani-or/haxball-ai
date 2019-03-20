@@ -163,7 +163,7 @@ if __name__ == '__main__':
                 # best_move = hx.get_best_move()
                 # hx.send_button(*best_move)
                 # time.sleep(10000)
-    except (KeyboardInterrupt, SystemExit) as e:
+    except Exception as e:
         print('Exiting... un momento solo, faccio seriliazzazione')
         qlearning.serialize()
         qlearning.exp_replay.serialize()

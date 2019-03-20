@@ -31,6 +31,7 @@ class BrowserEnvironment(HXController):
 
             12: distanza dal giocatore alla palla
             13: campo bloccato (1 se l'avversario deve ancora toccare la palla, 0 - se lo deve il giocatore o la partita è già iniziata)
+            14: tempo passato (t)
 
         Output (Azioni):
             0: NULL (aspettare / non fare niente)
@@ -83,6 +84,7 @@ class BrowserEnvironment(HXController):
         self.red_team = initial_info['player']['team'] == 'Red'
         self.not_started_yet = 0
         self.game_finished = False
+        self.tempo = 0
 
     @classmethod
     def prodotto_scalare(cls, a, b):
@@ -185,6 +187,10 @@ class BrowserEnvironment(HXController):
         # else:
         #     self.not_started_yet = 0
 
+        if not campo_bloccato:
+            reward -= 0.25 * self.tempo
+            self.tempo += 1
+
         done = False
         # Anche qua, forse non va aggiunto sempre
         goal_reward = 0
@@ -194,10 +200,12 @@ class BrowserEnvironment(HXController):
                 # premio, abbiamo segnato
                 goal_reward = 500
                 self.game_finished = True
+                self.tempo = 0
             elif self.score[1 - score_index] < game_info['score'][1 - score_index]:
                 # penalità, abbiamo subito
                 goal_reward = -200
                 self.game_finished = True
+                self.tempo = 0
         reward += goal_reward
 
         self.score = game_info['score']
@@ -221,7 +229,8 @@ class BrowserEnvironment(HXController):
             # int(self._buttons_state['down']) if not self.red_team else int(self._buttons_state['up']),
             # int(self._buttons_state['space']),
             distanza_alla_palla,
-            int(campo_bloccato)
+            int(campo_bloccato),
+            self.tempo
         ]
 
         return state, reward, done
