@@ -95,6 +95,7 @@ class QLearning:
         self.rewards_history = []
 
         self.io_lock = Lock()
+        self.thread_pool = None
 
     # def save_model(self):
     #     with self.network.access_lock:
@@ -151,8 +152,10 @@ class QLearning:
         qvalues = self.agent.get_qvalues(self.sess, prev_states)
         actions = [self.agent.sample_actions(np.expand_dims(qs, axis=0))[0] for qs in qvalues]
 
-        pool = Pool()
-        next_states_r_done = pool.map(lambda args: args[0].step(args[1]), zip(envs, actions))
+        if self.thread_pool is None:
+            self.thread_pool = Pool(len(envs))
+
+        next_states_r_done = self.thread_pool.map(lambda args: args[0].step(args[1]), zip(envs, actions))
 
         for i, res in enumerate(next_states_r_done):
             prev_state = prev_states[i]
