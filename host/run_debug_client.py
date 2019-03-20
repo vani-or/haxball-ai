@@ -18,7 +18,7 @@ def inject(js):
     # newjs = newjs.replace('c);return c', 'c);console.log("c", c);return c')
     # newjs = newjs.replace('this.Xf.Mr(this.S)', 'this.Xf.Mr(this.S);console.log("S", this.L.H.wa.K[0].M);') # this.L.D - giocatori
 
-    with open('../js/game.js', 'r') as fp:
+    with open('js/game.js', 'r') as fp:
         return fp.read()
         # newjs = fp.read() + newjs
     # return newjs
@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     usernames = []
     for tab in tabs:
-        with open('../js/injection.js', 'r') as fp:
+        with open('js/injection.js', 'r') as fp:
             res = tab.Runtime.evaluate(expression=fp.read())
 
         username = names.get_full_name(gender=random.choice(['male', 'female']))

@@ -155,8 +155,11 @@ if __name__ == '__main__':
                 prev_states = [hx.step(0)[0] for hx in players]
 
             if prev_states is not None:
-                next_states, rs, dones = zip(*qlearning.one_step(prev_states, players))
-                prev_states = next_states
+                try:
+                    next_states, rs, dones = zip(*qlearning.one_step(prev_states, players))
+                    prev_states = next_states
+                except:
+                    prev_states = None
                 # best_move = hx.get_best_move()
                 # hx.send_button(*best_move)
                 # time.sleep(10000)
