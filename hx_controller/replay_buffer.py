@@ -8,7 +8,7 @@ import random
 
 
 class ReplayBuffer(object):
-    def __init__(self, size, observation_size: int, observation_dtype='float16', action_dtype='uint8', reward_dtype='float16'):
+    def __init__(self, size, observation_size: int, observation_dtype='float32', action_dtype='uint8', reward_dtype='float32'):
         """Create Replay buffer.
         Parameters
         ----------
