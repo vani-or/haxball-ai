@@ -8,7 +8,7 @@ import random
 
 
 class ReplayBuffer(object):
-    def __init__(self, size, observation_size: int):
+    def __init__(self, size, observation_size: int, observation_dtype='float16', action_dtype='uint8', reward_dtype='float16'):
         """Create Replay buffer.
         Parameters
         ----------
@@ -19,14 +19,12 @@ class ReplayBuffer(object):
         self._maxsize = int(size)
         self._filled_once = False
         self._observation_size = observation_size
-        # 2 * observation_size + 3  = serve per salvare |prev_s + action + reward + next_s + done| colonne
-        self._storage = np.zeros(shape=(self._maxsize, 2 * self._observation_size + 3), dtype='float16')
-        # indexes for sample matrix
-        self._obs_t_columns_id = list(range(self._observation_size))
-        self._action_columns_id = self._observation_size
-        self._reward_columns_id = self._observation_size + 1
-        self._obs_tp1_columns_id = list(range(self._observation_size + 2, 2 * self._observation_size + 2))
-        self._done_columns_id = 2 * self._observation_size + 2
+
+        self._obs_t = np.zeros(shape=(self._maxsize, self._observation_size), dtype=observation_dtype)
+        self._obs_tp1 = np.zeros(shape=(self._maxsize, self._observation_size), dtype=observation_dtype)
+        self._action = np.zeros(shape=(self._maxsize, ), dtype=action_dtype)
+        self._reward = np.zeros(shape=(self._maxsize, ), dtype=reward_dtype)
+        self._done = np.zeros(shape=(self._maxsize, ), dtype='uint8')
 
         self._next_idx = 0
 
@@ -34,17 +32,25 @@ class ReplayBuffer(object):
         if previous_buffers:
             fn = 'buffers/' + previous_buffers[-1]
             npzfile = np.load(fn)
-            self._storage = npzfile['storage']
+            self._obs_t = npzfile['obs_t']
+            self._obs_tp1 = npzfile['obs_tp1']
+            self._action = npzfile['action']
+            self._reward = npzfile['reward']
+            self.done = npzfile['done']
             self._next_idx = npzfile['next_idx']
 
     def __len__(self):
-        return len(self._storage)
+        if self._filled_once:
+            return self._maxsize
+        else:
+            return self._next_idx
 
     def add(self, obs_t, action, reward, obs_tp1, done):
-        # data = (obs_t, action, reward, obs_tp1, done)
-        row = np.concatenate((obs_t, [action], [reward], obs_tp1, [done]))
-
-        self._storage[self._next_idx] = row
+        self._obs_t[self._next_idx] = obs_t
+        self._action[self._next_idx] = action
+        self._reward[self._next_idx] = reward
+        self._obs_tp1[self._next_idx] = obs_tp1
+        self._done[self._next_idx] = done
 
         if self._next_idx > 0 and self._next_idx == self._maxsize - 1:
             self.serialize()
@@ -53,12 +59,12 @@ class ReplayBuffer(object):
         self._next_idx = (self._next_idx + 1) % self._maxsize
 
     def _encode_sample(self, idxes):
-        matrix = self._storage[idxes]
-        obses_t = matrix[:, self._obs_t_columns_id]
-        actions = matrix[:, self._action_columns_id]
-        rewards = matrix[:, self._reward_columns_id]
-        obses_tp1 = matrix[:, self._obs_tp1_columns_id]
-        dones = matrix[:, self._done_columns_id]
+        obses_t = self._obs_t[idxes]
+        actions = self._action[idxes]
+        rewards = self._reward[idxes]
+        obses_tp1 = self._obs_tp1[idxes]
+        dones = self._done[idxes]
+
         return obses_t, actions, rewards, obses_tp1, dones
 
     def sample(self, batch_size):
@@ -81,7 +87,6 @@ class ReplayBuffer(object):
             done_mask[i] = 1 if executing act_batch[i] resulted in
             the end of an episode and 0 otherwise.
         """
-        # idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]
         if self._filled_once:
             idxes = np.random.randint(self._maxsize, size=batch_size)
         else:
@@ -90,4 +95,12 @@ class ReplayBuffer(object):
 
     def serialize(self):
         filename = 'buffers/buffer_%s.npz' % datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        np.savez(filename, storage=self._storage, next_idx=self._next_idx)
+        np.savez(
+            filename,
+            obs_t=self._obs_t,
+            action=self._action,
+            reward=self._reward,
+            obs_tp1=self._obs_tp1,
+            done=self._done
+        )
+

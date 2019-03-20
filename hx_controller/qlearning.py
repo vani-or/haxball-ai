@@ -159,11 +159,12 @@ class QLearning:
             action = actions[i]
             env = envs[i]
             next_s, r, done = res
-            self.exp_replay.add(prev_state, action, r, next_s, done)
-            inverted_prev_state = env.invert_state(prev_state)
-            inverted_action = env.invert_action(action)
-            inverted_next_s = env.invert_state(next_s)
-            self.exp_replay.add(inverted_prev_state, inverted_action, r, inverted_next_s, done)
+            if env.game_finished and not done:
+                self.exp_replay.add(prev_state, action, r, next_s, done)
+                inverted_prev_state = env.invert_state(prev_state)
+                inverted_action = env.invert_action(action)
+                inverted_next_s = env.invert_state(next_s)
+                self.exp_replay.add(inverted_prev_state, inverted_action, r, inverted_next_s, done)
 
         # train
         if self.step_number % settings['LEARNING_STEP_NUMBER'] == 0 and self.step_number > 0:

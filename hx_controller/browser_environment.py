@@ -153,6 +153,9 @@ class BrowserEnvironment(HXController):
         else:
             campo_bloccato = game_info['init']['team'] == 'Red' and not game_info['init']['started']
 
+        if game_info['ball']['position']['x'] == 0 and game_info['ball']['position']['y'] == 0:
+            self.game_finished = False
+
         # # # # # REWARD # # # # #
         reward = 0
 
@@ -189,9 +192,11 @@ class BrowserEnvironment(HXController):
             if self.score[score_index] < game_info['score'][score_index]:
                 # premio, abbiamo segnato
                 goal_reward = 500
+                self.game_finished = True
             elif self.score[1 - score_index] < game_info['score'][1 - score_index]:
                 # penalità, abbiamo subito
                 goal_reward = -200
+                self.game_finished = True
         reward += goal_reward
 
         self.score = game_info['score']
