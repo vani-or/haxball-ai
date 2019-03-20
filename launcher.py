@@ -146,21 +146,21 @@ if __name__ == '__main__':
     qlearning = QLearning(buffer_size=settings['EXP_REPLAY_BUFFER_SIZE'])
 
     prev_states = None
-    while True:
-        # info = hx._get_game_info()
-        if prev_states is None:
-            prev_states = [hx.step(0)[0] for hx in players]
+    try:
+        while True:
+            # info = hx._get_game_info()
+            if prev_states is None:
+                prev_states = [hx.step(0)[0] for hx in players]
 
-        if prev_states is not None:
-            next_states, rs, dones = zip(*qlearning.one_step(prev_states, players))
-            prev_states = next_states
-            # best_move = hx.get_best_move()
-            # hx.send_button(*best_move)
-            # time.sleep(10000)
-
-        # if i % 1000 == 0:
-        #     logging.info('Saving model...')
-        #     hx.save_model()
-
-    # time.sleep(0.04)
+            if prev_states is not None:
+                next_states, rs, dones = zip(*qlearning.one_step(prev_states, players))
+                prev_states = next_states
+                # best_move = hx.get_best_move()
+                # hx.send_button(*best_move)
+                # time.sleep(10000)
+    except (KeyboardInterrupt, SystemExit) as e:
+        print('Exiting... un momento solo, faccio seriliazzazione')
+        qlearning.serialize()
+        qlearning.exp_replay.serialize()
+        print('Ciao!')
 
