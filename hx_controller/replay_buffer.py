@@ -101,6 +101,7 @@ class ReplayBuffer(object):
             action=self._action,
             reward=self._reward,
             obs_tp1=self._obs_tp1,
-            done=self._done
+            done=self._done,
+            next_idx=self._next_idx
         )
 
