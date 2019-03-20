@@ -17,8 +17,9 @@ class DQNAgent:
         with tf.variable_scope(name, reuse=reuse):
             self.model = Sequential()
             self.model.add(InputLayer(state_shape))
+            self.model.add(Dense(32, activation='relu'))
             self.model.add(Dense(256, activation='relu'))
-            # self.model.add(Dense(192, activation='relu'))
+            self.model.add(Dense(256, activation='relu'))
             self.model.add(Dense(128, activation='relu'))
             self.model.add(Dense(64, activation='relu'))
             self.model.add(Dense(n_actions, activation='linear'))
