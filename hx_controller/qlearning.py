@@ -159,7 +159,10 @@ class QLearning:
             action = actions[i]
             env = envs[i]
             next_s, r, done = res
-            if env.game_finished and not done:
+
+            # Done è l'ultimo stato possibile:
+            # Qua semplicemente escludo le situazioni quando c'era un gol ma la palla non è ancora rimessa nel centro
+            if not env.game_finished or done:
                 self.exp_replay.add(prev_state, action, r, next_s, done)
                 inverted_prev_state = env.invert_state(prev_state)
                 inverted_action = env.invert_action(action)

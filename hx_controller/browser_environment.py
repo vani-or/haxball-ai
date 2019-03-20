@@ -82,6 +82,7 @@ class BrowserEnvironment(HXController):
         self.score = initial_info['score']
         self.red_team = initial_info['player']['team'] == 'Red'
         self.not_started_yet = 0
+        self.game_finished = False
 
     @classmethod
     def prodotto_scalare(cls, a, b):
