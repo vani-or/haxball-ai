@@ -40,36 +40,6 @@ room.onPlayerJoin = function(player) {
     }
 };
 
-var last_ball_position = null;
-var prev_delta;
-var ticks = 0;
-var checkBallInterval = setInterval(function () {
-    var pos = room.getBallPosition();
-
-    if(last_ball_position)
-    {
-        var delta = Math.max(Math.abs(pos['x'] - last_ball_position['x']), Math.abs(pos['y'] - last_ball_position['y']));
-        if(delta < 0.3)
-        {
-            ticks += 1;
-        }
-        else
-        {
-            ticks = 0;
-        }
-        prev_delta = delta;
-    }
-    last_ball_position = pos;
-
-    if(ticks >= 250)
-    {
-        // 10 secondi della palla ferma
-        room.stopGame();
-        room.startGame();
-        ticks = 0;
-    }
-}, 40);
-
 // 3. Ottenere il link
 // 4. Guardare l'elenco dei giocatori room.getPlayerList()
 // 5. Aggiungere l'admin room.setPlayerAdmin(1, 1)
