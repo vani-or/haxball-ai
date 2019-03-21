@@ -31,7 +31,7 @@ class BrowserEnvironment(HXController):
 
             12: distanza dal giocatore alla palla
             13: campo bloccato (1 se l'avversario deve ancora toccare la palla, 0 - se lo deve il giocatore o la partita è già iniziata)
-            14: tempo passato (t)
+            # 14: tempo passato (t)
 
         Output (Azioni):
             0: NULL (aspettare / non fare niente)
@@ -176,6 +176,10 @@ class BrowserEnvironment(HXController):
         # vett_palla_porta = (game_info['field_size'][0] + game_info['ball']['position']['x'], game_info['ball']['position']['y'])
         # reward += self.prodotto_scalare(vett_palla_porta, (-game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']))
 
+        # Velocità troppo bassa (penalità)
+        velocita_palla = math.sqrt(game_info['ball']['velocity']['x'] ** 2 + game_info['ball']['velocity']['y'] ** 2)
+        reward -= max(0.0, 400 * (0.5 - velocita_palla))
+
         # Penalità se il giocatore e "davanti" alla palla
         if game_info['player']['position']['x'] < game_info['ball']['position']['x']:
             reward -= (game_info['ball']['position']['x'] - game_info['player']['position']['x'])
@@ -230,7 +234,7 @@ class BrowserEnvironment(HXController):
             # int(self._buttons_state['space']),
             distanza_alla_palla,
             int(campo_bloccato),
-            self.tempo
+            # self.tempo
         ]
 
         return state, reward, done

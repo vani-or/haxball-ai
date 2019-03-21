@@ -38,7 +38,7 @@ class QLearning:
         self.sess = tf.InteractiveSession()
         keras.backend.set_session(self.sess)
 
-        self.n_inputs = 15
+        self.n_inputs = 14
         self.n_actions = 10
 
         self.state_dim = (self.n_inputs,)
