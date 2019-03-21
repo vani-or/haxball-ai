@@ -3,6 +3,7 @@ import logging
 import os
 import random
 import time
+import traceback
 from queue import Queue
 from threading import Thread, Lock
 
@@ -59,7 +60,7 @@ def requestIntercepted(tab):
 
 
 def run_agent(room_url: str, players_queue: Queue):
-    username = names.get_first_name(gender=random.choice(['male', 'female'])) + '__'
+    username = names.get_first_name(gender=random.choice(['male', 'female'])) + '_'
 
     print('Creating player %s...' % username)
     br = Chrome(port=get_next_port_number())
@@ -164,6 +165,8 @@ if __name__ == '__main__':
                 # hx.send_button(*best_move)
                 # time.sleep(10000)
     except Exception as e:
+        print(e)
+        print(traceback.format_exc())
         print('Exiting... un momento solo, faccio seriliazzazione')
         qlearning.serialize()
         qlearning.exp_replay.serialize()

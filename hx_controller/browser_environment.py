@@ -1,3 +1,4 @@
+import logging
 import math
 import time
 from copy import copy
@@ -31,7 +32,7 @@ class BrowserEnvironment(HXController):
 
             12: distanza dal giocatore alla palla
             13: campo bloccato (1 se l'avversario deve ancora toccare la palla, 0 - se lo deve il giocatore o la partita è già iniziata)
-            14: tempo passato (t)
+            # 14: tempo passato (t)
 
         Output (Azioni):
             0: NULL (aspettare / non fare niente)
@@ -85,6 +86,7 @@ class BrowserEnvironment(HXController):
         self.not_started_yet = 0
         self.game_finished = False
         self.tempo = 0
+        self.last_game_info = None
 
     @classmethod
     def prodotto_scalare(cls, a, b):
@@ -156,9 +158,6 @@ class BrowserEnvironment(HXController):
         else:
             campo_bloccato = game_info['init']['team'] == 'Red' and not game_info['init']['started']
 
-        if game_info['ball']['position']['x'] == 0 and game_info['ball']['position']['y'] == 0:
-            self.game_finished = False
-
         # # # # # REWARD # # # # #
         reward = 0
 
@@ -191,6 +190,9 @@ class BrowserEnvironment(HXController):
             reward -= 0.25 * self.tempo
             self.tempo += 1
 
+        if game_info['ball']['position']['x'] == 0 and game_info['ball']['position']['y'] == 0:
+            self.game_finished = False
+
         done = False
         # Anche qua, forse non va aggiunto sempre
         goal_reward = 0
@@ -207,6 +209,18 @@ class BrowserEnvironment(HXController):
                 self.game_finished = True
                 self.tempo = 0
         reward += goal_reward
+
+        if not self.game_finished and self.last_game_info is not None and not self.last_game_info['campo_bloccato'] and game_info['ball']['position']['x'] == 0 and game_info['ball']['position']['y'] == 0:
+            dist = math.sqrt((game_info['player']['position']['x'] - self.last_game_info['player']['position']['x'])**2 + \
+            (game_info['player']['position']['y'] - self.last_game_info['player']['position']['y'])**2) + \
+            math.sqrt((game_info['opponent']['position']['x'] - self.last_game_info['opponent']['position']['x'])**2 + \
+            (game_info['opponent']['position']['y'] - self.last_game_info['opponent']['position']['y'])**2)
+            if dist > 75:
+                reward -= 2000  # nessuno ha toccato la palla e il server ha fatto reset del gioco
+                done = True
+                logging.warning('REBOOT ' + str(dist))
+        self.last_game_info = game_info
+        self.last_game_info['campo_bloccato'] = campo_bloccato
 
         self.score = game_info['score']
 
@@ -229,8 +243,7 @@ class BrowserEnvironment(HXController):
             # int(self._buttons_state['down']) if not self.red_team else int(self._buttons_state['up']),
             # int(self._buttons_state['space']),
             distanza_alla_palla,
-            int(campo_bloccato),
-            self.tempo
+            int(campo_bloccato)
         ]
 
         return state, reward, done
