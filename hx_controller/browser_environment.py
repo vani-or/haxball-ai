@@ -179,7 +179,7 @@ class BrowserEnvironment(HXController):
         # Velocità troppo bassa (penalità)
         if not campo_bloccato:
             velocita_palla = math.sqrt(game_info['ball']['velocity']['x'] ** 2 + game_info['ball']['velocity']['y'] ** 2)
-            reward -= max(0.0, 400 * (0.5 - velocita_palla))
+            reward -= 100 * max(0.0, 0.5 - velocita_palla)
 
         # Penalità se il giocatore e "davanti" alla palla
         if game_info['player']['position']['x'] < game_info['ball']['position']['x']:
