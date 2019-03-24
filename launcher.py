@@ -97,7 +97,7 @@ def get_next_port_number():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG, format='%(levelname)s\t%(asctime)s (%(threadName)-9s) %(message)s')
+    logging.basicConfig('game.log', level=logging.DEBUG, format='%(levelname)s\t%(asctime)s (%(threadName)-9s) %(message)s')
 
     print('Please get tokens from here https://www.haxball.com/headlesstoken')
     print()
@@ -153,7 +153,12 @@ if __name__ == '__main__':
         while True:
             # info = hx._get_game_info()
             if prev_states is None:
-                prev_states = [hx.step(0)[0] for hx in players]
+                try:
+                    prev_states = [hx.step(0)[0] for hx in players]
+                except:
+                    logging.warning('hx.step restituisce None')
+                    time.sleep(0.5)
+                    continue
 
             if prev_states is not None:
                 try:
@@ -165,10 +170,11 @@ if __name__ == '__main__':
                 # hx.send_button(*best_move)
                 # time.sleep(10000)
     except Exception as e:
-        print(e)
-        print(traceback.format_exc())
-        print('Exiting... un momento solo, faccio seriliazzazione')
+        logging.error(e)
+        logging.error(traceback.format_exc())
+        logging.info('Exiting... un momento solo, faccio seriliazzazione')
         qlearning.serialize()
         qlearning.exp_replay.serialize()
+        logging.info('Ciao!')
         print('Ciao!')
 
