@@ -97,7 +97,7 @@ def get_next_port_number():
 
 
 if __name__ == '__main__':
-    logging.basicConfig('game.log', level=logging.DEBUG, format='%(levelname)s\t%(asctime)s (%(threadName)-9s) %(message)s')
+    logging.basicConfig(filename='game.log', level=logging.DEBUG, format='%(levelname)s\t%(asctime)s (%(threadName)-9s) %(message)s')
 
     print('Please get tokens from here https://www.haxball.com/headlesstoken')
     print()
