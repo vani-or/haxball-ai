@@ -192,9 +192,9 @@ class BrowserEnvironment(HXController):
         # else:
         #     self.not_started_yet = 0
 
-        if not campo_bloccato:
-            reward -= 0.25 * self.tempo
-            self.tempo += 1
+        # if not campo_bloccato:
+        #     reward -= 0.25 * self.tempo
+        #     self.tempo += 1
 
         done = False
         # Anche qua, forse non va aggiunto sempre
