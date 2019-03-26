@@ -155,6 +155,8 @@ if __name__ == '__main__':
             if prev_states is None:
                 try:
                     prev_states = [hx.step(0)[0] for hx in players]
+                except KeyboardInterrupt as e:
+                    raise e
                 except:
                     logging.warning('hx.step restituisce None')
                     time.sleep(0.5)
@@ -164,6 +166,8 @@ if __name__ == '__main__':
                 try:
                     next_states, rs, dones = zip(*qlearning.one_step(prev_states, players))
                     prev_states = next_states
+                except KeyboardInterrupt as e:
+                    raise e
                 except:
                     prev_states = None
                 # best_move = hx.get_best_move()
