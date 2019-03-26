@@ -157,7 +157,7 @@ if __name__ == '__main__':
                     prev_states = [hx.step(0)[0] for hx in players]
                 except KeyboardInterrupt as e:
                     raise e
-                except:
+                except Exception:
                     logging.warning('hx.step restituisce None')
                     time.sleep(0.5)
                     continue
@@ -168,12 +168,12 @@ if __name__ == '__main__':
                     prev_states = next_states
                 except KeyboardInterrupt as e:
                     raise e
-                except:
+                except Exception:
                     prev_states = None
                 # best_move = hx.get_best_move()
                 # hx.send_button(*best_move)
                 # time.sleep(10000)
-    except Exception as e:
+    except BaseException as e:
         logging.error(e)
         logging.error(traceback.format_exc())
         logging.info('Exiting... un momento solo, faccio seriliazzazione')
