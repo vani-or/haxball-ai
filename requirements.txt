@@ -3,3 +3,4 @@ numpy==1.16.2
 pychrome==0.2.2
 tensorflow==1.13.1
 names==0.3.0
+pygame==1.9.5

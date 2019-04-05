@@ -1,8 +1,8 @@
 settings = {
     'GAMMA': 0.99,
-    'EPSILON_0': 0.5,
+    'EPSILON_0': 0.0,
     'EPSILON_DISCOUNT_COEF': 0.999,
-    'EPSILON_MIN_VALUE': 0.01,
+    'EPSILON_MIN_VALUE': 0.0,
 
     'EXP_REPLAY_BUFFER_SIZE': int(1e7),
 

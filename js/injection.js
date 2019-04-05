@@ -159,3 +159,22 @@ function sendHxCommand(event, key, code, keyCode) {
         }
     };
     */
+
+// https://stackoverflow.com/a/14966131/1581927
+window.csv_rows = [];
+function add_to_csv(prev_row, new_row)
+{
+    var line = prev_row.concat(new_row);
+    window.csv_rows.push(line);
+}
+function download_csv()
+{
+    var csvContent = "data:text/csv;charset=utf-8,";
+    window.csv_rows.forEach(function(rowArray)
+    {
+       var row = rowArray.join(";");
+       csvContent += row + "\r\n";
+    });
+    var encodedUri = encodeURI(csvContent);
+    window.open(encodedUri);
+}

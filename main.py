@@ -51,7 +51,7 @@ if __name__ == '__main__':
         return handler
 
     tabs = []
-    for i in range(2):
+    for i in range(1):
         br = Chrome(port=9223)
         br.launch()
         tab = br.get_chrome_tab('tab' + str(i))
