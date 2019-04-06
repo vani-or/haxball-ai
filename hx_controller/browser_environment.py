@@ -6,6 +6,7 @@ from pychrome.tab import Tab
 
 from config.config import settings
 from hx_controller import HXController
+from simulator import create_start_conditions
 
 
 class BrowserEnvironment(HXController):
@@ -77,7 +78,7 @@ class BrowserEnvironment(HXController):
         }
         initial_info = None
         while initial_info is None or not initial_info['player']:
-            initial_info = self._get_game_info()
+            initial_info = self.get_game_info()
             time.sleep(0.5)
 
         self.score = initial_info['score']
@@ -133,7 +134,7 @@ class BrowserEnvironment(HXController):
         time.sleep(settings['REWARD_WAIT_TIME'])
 
         # Ottengo l'info del gioco dal JavaScript
-        game_info = self._get_game_info()
+        game_info = self.get_game_info()
         if not game_info or not game_info['player'] or not game_info['opponent']:
             return
 

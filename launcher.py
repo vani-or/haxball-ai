@@ -151,7 +151,7 @@ if __name__ == '__main__':
     prev_states = None
     try:
         while True:
-            # info = hx._get_game_info()
+            # info = hx.get_game_info()
             if prev_states is None:
                 try:
                     prev_states = [hx.step(0)[0] for hx in players]

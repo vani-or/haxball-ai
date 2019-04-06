@@ -323,6 +323,7 @@ class Field:
 
         self.qe = 0
         self.rf = True
+        self.spec_team_inst = None
 
     def Vm(self, a, b):
         c = 0
@@ -346,10 +347,10 @@ class Field:
                 else:
                     f = True
             if f:  # if (f)
-                return e.Yd.sn  # return e.Yd; // Probabilmente restituisce questo oggetto (classe Squadra) per chi ha segnato un gol
+                return e.Yd  # return e.Yd; // Probabilmente restituisce questo oggetto (classe Squadra) per chi ha segnato un gol
 
             # return p.Fa  # return p.Fa; // Forse è la squadra degli spectators
-        return 't-spec'  # return p.Fa; // Forse è la squadra degli spectators
+        return self.spec_team_inst  # return p.Fa; // Forse è la squadra degli spectators
 
 
 class Room:
@@ -523,6 +524,11 @@ class GamePlay:
 
         self.xa = 0
         self.zb = 1
+        self.red_team_inst = None
+        self.blu_team_inst = None
+        self.spec_team_inst = None
+        self.red_scored = False
+        self.blue_scored = False
 
     def step(self, a=1):
         c = self.Pa.D
@@ -615,15 +621,19 @@ class GamePlay:
             # this.kd - posizione della palla
             c = self.U.Vm(b.a, self.kd)  # c = this.U.Vm(b.a, this.kd); // cosa fa? forse verifica se è stato segnato un gol
             # if c != p.Fa:  # if(c != p.Fa) TODO: p.Fa è la classe p dei "Spectators"
-            if c != 't-spec':  # if(c != p.Fa) TODO: p.Fa è la classe p dei "Spectators"
+            self.red_scored = False
+            self.blue_scored = False
+            if c != self.spec_team_inst:  # if(c != p.Fa) TODO: p.Fa è la classe p dei "Spectators"
                 self.zb = 2  # this.zb = 2,
                 self.pc = 150  # this.pc = 150,
                 self.Jd = c  # this.Jd = c,
-                # if c == p.ba:  # TODO: p.Fa è la classe p dei "Red"
-                if c == 't-red':  # TODO: p.Fa è la classe p dei "Red"
+                # if c == p.ba:  # la squadra che ha subito il gol
+                if c == self.red_team_inst:  # TODO: p.Fa è la classe p dei "Red"
                     self.Cb += 1
+                    self.blue_scored = True
                 else:
                     self.Kb += 1
+                    self.red_scored = True
                 # if self.Pa.oi is not None:  # null != this.Pa.oi && this.Pa.oi(c.Tf),
                 #     self.Pa.oi(c.Tf)  # // probabilmente gueste sono gli hook di animazione e suono del gol
                 # if self.Pa.bl is not None:  # null != this.Pa.bl && this.Pa.bl(c.P);
@@ -686,18 +696,32 @@ class GamePlay:
 
 
 def create_start_conditions(
-        posizione_palla: Vector,
-        velocita_palla: Vector,
-        posizione_blu: Vector,
-        velocita_blu: Vector,
-        input_blu: int,
-        posizione_rosso: Vector,
-        velocita_rosso: Vector,
-        input_rosso: int,
-        tempo_iniziale: float,
+        posizione_palla: Union[None, Vector] = None,
+        velocita_palla: Union[None, Vector] = None,
+        posizione_blu: Union[None, Vector] = None,
+        velocita_blu: Union[None, Vector] = None,
+        input_blu: int = 0,
+        posizione_rosso: Union[None, Vector] = None,
+        velocita_rosso: Union[None, Vector] = None,
+        input_rosso: int = 0,
+        tempo_iniziale: float = 0,
         punteggio_rosso: int = 0,
-        punteggio_blu: int = 0
+        punteggio_blu: int = 0,
+        commincia_rosso: bool = True
 ):
+    if posizione_palla is None:
+        posizione_palla = Vector(0, 0)
+    if velocita_palla is None:
+        velocita_palla = Vector(0, 0)
+    if posizione_blu is None:
+        posizione_blu = Vector(277.5, 0)
+    if velocita_blu is None:
+        velocita_blu = Vector(0, 0)
+    if posizione_rosso is None:
+        posizione_rosso = Vector(-277.5, 0)
+    if velocita_rosso is None:
+        velocita_rosso = Vector(0, 0)
+
     palla = Object()
     palla.B = 1
     palla.Ba = 0.99
@@ -1010,14 +1034,14 @@ def create_start_conditions(
     field_physics.Yb = None
     field_physics.Zb = -1
     field_physics.ha = field.ha
+    field.spec_team_inst = spectators_team
 
     game_play = GamePlay()
     game_play.Ac = tempo_iniziale
     game_play.Cb = punteggio_blu
     game_play.Ga = 0
-    game_play.Jd = red_team
+    game_play.Jd = red_team if commincia_rosso else blue_team
     game_play.Kb = punteggio_rosso
-    # game_play.Pa = None  # TODO da mettere Room qua, fatto
     game_play.U = field
     game_play.Yb = None
     game_play.Zb = -1
@@ -1028,6 +1052,11 @@ def create_start_conditions(
     game_play.wa = field_physics
     game_play.xa = 0
     game_play.zb = 0
+    game_play.red_team_inst = red_team
+    game_play.blu_team_inst = blue_team
+    game_play.spec_team_inst = spectators_team
+    game_play.red_scored = False
+    game_play.blue_scored = False
 
     room = Room()
     room.D = [
@@ -1051,365 +1080,3 @@ def create_start_conditions(
     game_play.Pa = room
 
     return game_play
-
-
-if __name__ == '__main__':
-    # Emulazione!
-
-    velocita_palla = Vector(x=0.21272301187786036, y=-1.0582867089194643)
-    posizione_palla = Vector(x=115.05294134865011, y=76.26196858894968)
-
-    palla = Object()
-    palla.B = 1
-    palla.Ba = 0.99
-    palla.M = velocita_palla
-    palla.X = 16777215
-    palla.Yb = None
-    palla.Zb = -1
-    palla.a = posizione_palla
-    palla.gj = 0
-    palla.h = -1
-    palla.l = 0.5
-    palla.la = 10
-    palla.pa = 1
-    palla.zk = 0
-
-    palo1 = Object()
-    palo1.B = -1
-    palo1.Ba = 0.99
-    palo1.M = Vector(0, 0)
-    palo1.X = 13421823
-    palo1.Yb = None
-    palo1.Zb = -1
-    palo1.a = Vector(370, -64)
-    palo1.gj = 0
-    palo1.h = -1
-    palo1.l = 0.5
-    palo1.la = 8
-    palo1.pa = 0
-    palo1.zk = 0
-
-    palo2 = Object()
-    palo2.B = -1
-    palo2.Ba = 0.99
-    palo2.M = Vector(0, 0)
-    palo2.X = 13421823
-    palo2.Yb = None
-    palo2.Zb = -1
-    palo2.a = Vector(370, 64)
-    palo2.gj = 0
-    palo2.h = -1
-    palo2.l = 0.5
-    palo2.la = 8
-    palo2.pa = 0
-    palo2.zk = 0
-
-    palo3 = Object()
-    palo3.B = -1
-    palo3.Ba = 0.99
-    palo3.M = Vector(0, 0)
-    palo3.X = 13421823
-    palo3.Yb = None
-    palo3.Zb = -1
-    palo3.a = Vector(-370, -64)
-    palo3.gj = 0
-    palo3.h = -1
-    palo3.l = 0.5
-    palo3.la = 8
-    palo3.pa = 0
-    palo3.zk = 0
-
-    palo4 = Object()
-    palo4.B = -1
-    palo4.Ba = 0.99
-    palo4.M = Vector(0, 0)
-    palo4.X = 13421823
-    palo4.Yb = None
-    palo4.Zb = -1
-    palo4.a = Vector(-370, 64)
-    palo4.gj = 0
-    palo4.h = -1
-    palo4.l = 0.5
-    palo4.la = 8
-    palo4.pa = 0
-    palo4.zk = 0
-
-    spectators_team = Team()
-    spectators_team.B = 0
-    spectators_team.El = {'Tc': 16777215, 'cb': [16777215]}  # ka
-    spectators_team.P = 0
-    spectators_team.Tf = spectators_team
-    spectators_team.X = 16777215
-    spectators_team.dh = 0
-    spectators_team.mo = -1
-    spectators_team.o = 'Spectators'
-    spectators_team.sn = 't-spec'
-
-    host_user = User()
-    host_user.dollar = spectators_team
-    host_user.Bb = 0
-    host_user.F = None
-    host_user.T = 0
-    host_user.bc = False
-    host_user.im = None
-    host_user.jb = None
-    host_user.mb = 0
-    host_user.o = 'Host'
-    host_user.ra = True
-    host_user.uc = -1
-    host_user.wb = 0
-    host_user.wd = 'it'
-    host_user.wg = 0
-    host_user.xd = False
-
-    red_team = Team()
-    red_team.B = 2
-    red_team.El = {'Tc': 16777215, 'cb': [15035990]}  # ka
-    red_team.P = 1
-    red_team.Tf = None  # blue_team
-    red_team.X = 15035990
-    red_team.dh = -1
-    red_team.mo = 8
-    red_team.o = 'Red'
-    red_team.sn = 't-red'
-
-    red_player_object = Object()
-    red_player_object.B = 2
-    red_player_object.Ba = 0.96
-    red_player_object.M = Vector(x=3.152835002987885e-17, y=4.4745525008284705e-18)
-    red_player_object.X = 0
-    red_player_object.Yb = None
-    red_player_object.Zb = -1
-    red_player_object.a = Vector(x=1.8229900270898083, y=-3.145694940949635)
-    red_player_object.gj = 0
-    red_player_object.h = 39
-    red_player_object.l = 0.5
-    red_player_object.la = 15
-    red_player_object.pa = 0.5
-    red_player_object.zk = 0
-
-    red_player = User()
-    red_player.dollar = red_team
-    red_player.Bb = 1
-    red_player.F = red_player_object
-    red_player.T = 2
-    red_player.bc = 0
-    red_player.im = None
-    red_player.jb = None
-    red_player.mb = 0
-    red_player.o = 'ciao2'
-    red_player.ra = True
-    red_player.uc = -1
-    red_player.wb = 6
-    red_player.wd = 'it'
-    red_player.wg = 0
-    red_player.xd = False
-
-    blue_team = Team()
-    blue_team.B = 4
-    blue_team.El = {'Tc': 16777215, 'cb': [5671397]}  # ka
-    blue_team.P = 2
-    blue_team.Tf = red_team
-    blue_team.X = 5671397
-    blue_team.dh = 1
-    blue_team.mo = 16
-    blue_team.o = 'Blue'
-    blue_team.sn = 't-blue'
-
-    blue_player_object = Object()
-    blue_player_object.B = 4
-    blue_player_object.Ba = 0.96
-    blue_player_object.M = Vector(x=-0.0015960196687738037, y=0.002566221855982013)
-    blue_player_object.X = 0
-    blue_player_object.Yb = None
-    blue_player_object.Zb = -1
-    blue_player_object.a = Vector(x=80.85712205478289, y=3.839509551798262)
-    blue_player_object.gj = 0
-    blue_player_object.h = 39
-    blue_player_object.l = 0.5
-    blue_player_object.la = 15
-    blue_player_object.pa = 0.5
-    blue_player_object.zk = 0
-
-    blue_player = User()
-    blue_player.dollar = blue_team
-    blue_player.Bb = 1
-    blue_player.F = blue_player_object
-    blue_player.T = 1
-    blue_player.bc = 0
-    blue_player.im = None
-    blue_player.jb = None
-    blue_player.mb = 0
-    blue_player.o = 'Ginger Burgess'
-    blue_player.ra = False
-    blue_player.uc = -1
-    blue_player.wb = 4
-    blue_player.wd = 'it'
-    blue_player.wg = 0
-    blue_player.xd = False
-
-    field = Field()
-    field.ac = 277.5
-    field.bh = 0
-    field.fc = 7441498
-    field.ha = [
-        I(32, -200, -1, 0, Vector(x=0, y=1)),
-        I(32, -200, -1, 0, Vector(x=0, y=-1)),
-        I(32, -420, -1, 0, Vector(x=1, y=0)),
-        I(32, -420, -1, 0, Vector(x=-1, y=0)),
-        I(32, -170, 1, 1, Vector(x=0, y=1)),
-        I(32, -170, 1, 1, Vector(x=0, y=-1)),
-    ]
-    field.hc = 200
-    field.kc = [
-        mb(palo1.a, palo2.a, squadra=blue_team),
-        mb(palo3.a, palo4.a, squadra=red_team),
-    ]
-    field.o = 'Classic'
-    field.oe = None  # TODO: da mettere ua
-    field.qe = 0
-    field.rf = True
-    field.C = [
-        z(32, Vector(x=378, y=-64), 0, 1, 0.1),
-        z(32, Vector(x=378, y=64), 0, 1, 0.1),
-        z(32, Vector(x=400, y=-42), 0, 1, 0.1),
-        z(32, Vector(x=400, y=42), 0, 1, 0.1),
-        z(32, Vector(x=400, y=42), 0, 1, 0.1),
-        z(32, Vector(x=-378, y=-64), 0, 1, 0.1),
-        z(32, Vector(x=-378, y=64), 0, 1, 0.1),
-        z(32, Vector(x=-400, y=-42), 0, 1, 0.1),
-        z(24, Vector(x=0, y=-200), 0, 6, 0.1),
-        z(24, Vector(x=0, y=-75), 0, 6, 0.1),
-        z(24, Vector(x=0, y=75), 0, 6, 0.1),
-        z(24, Vector(x=0, y=200), 0, 6, 0.1),  # 11
-        z(32, Vector(x=-370, y=-170), 0, 0, 1),
-        z(32, Vector(x=370, y=-170), 0, 0, 1),
-        z(32, Vector(x=370, y=-64), 0, 0, 1),
-        z(32, Vector(x=370, y=64), 0, 0, 1),
-        z(32, Vector(x=370, y=170), 0, 0, 1),
-        z(32, Vector(x=-370, y=170), 0, 0, 1),
-        z(32, Vector(x=-370, y=64), 0, 0, 1),
-        z(32, Vector(x=-370, y=-64), 0, 0, 1),
-    ]
-    field.Dd = 170
-    field.Ed = 370
-    field.Fe = 0
-    field.Ic = 0
-    field.K = [
-        BasicObject(Vector(370, -64)),
-        BasicObject(Vector(370, 64)),
-        BasicObject(Vector(-370, -64)),
-        BasicObject(Vector(-370, 64)),
-    ]
-    field.O = [
-        D(32, Vector(378, -42), z(32, Vector(x=378, y=-64), 0, 1, 0.1), z(32, Vector(x=400, y=-42), 0, 1, 0.1), True, 0, 1, Vector(22, 0), Vector(-0, -22), 0.1, 22, None, 1.0000000000000002, 0),
-        D(32, None, z(32, Vector(x=400, y=42), 0, 1, 0.1), z(32, Vector(x=400, y=-42), 0, 1, 0.1), True, 0, 1, None, None, 0.1, 0, Vector(-1, 0), float('Infinity'), 0),
-        D(32, Vector(378, 42), z(32, Vector(x=400, y=42), 0, 1, 0.1), z(32, Vector(x=378, y=64), 0, 1, 0.1), True, 0, 1, Vector(-0, 22), Vector(22, 0), 0.1, 22, None, 1.0000000000000002, 0),
-        D(32, Vector(-378, -42), z(32, Vector(x=-400, y=-42), 0, 1, 0.1), z(32, Vector(x=-378, y=-64), 0, 1, 0.1), True, 0, 1, Vector(-0, -22), Vector(-22, 0), 0.1, 22, None, 1.0000000000000002, -0),
-        D(32, None, z(32, Vector(x=-400, y=42), 0, 1, 0.1), z(32, Vector(x=-400, y=-42), 0, 1, 0.1), True, 0, 1, None, None, 0.1, 0, Vector(-1, 0), float('Infinity'), 0),
-        D(32, Vector(-378, 42), z(32, Vector(x=-378, y=64), 0, 1, 0.1), z(32, Vector(x=-400, y=42), 0, 1, 0.1), True, 0, 1, Vector(-22, 0), Vector(-0, 22), 0.1, 22, None, 1.0000000000000002, -0),
-        D(24, None, z(24, Vector(x=0, y=-200), 0, 6, 0.1), z(24, Vector(x=0, y=-75), 0, 6, 0.1), False, 0, 6, None, None, 0.1, 0, Vector(1, 0), float('Infinity'), 0),
-        D(24, None, z(24, Vector(x=0, y=75), 0, 6, 0.1), z(24, Vector(x=0, y=200), 0, 6, 0.1), False, 0, 6, None, None, 0.1, 0, Vector(1, 0), float('Infinity'), 0),
-        D(8, Vector(-4.592425496802574e-15, 0), z(24, Vector(x=0, y=-75), 0, 6, 0.1), z(24, Vector(x=0, y=75), 0, 6, 0.1), False, 0, 6, Vector(75, 4.592425496802574e-15), Vector(75, -4.592425496802574e-15), 0.1, 75, None, 6.123233995736766e-17, 0),
-        D(16, Vector(4.592425496802574e-15, 0), z(24, Vector(x=0, y=75), 0, 6, 0.1), z(24, Vector(x=0, y=-75), 0, 6, 0.1), False, 0, 6, Vector(-75, 4.592425496802574e-15), Vector(-75, -4.592425496802574e-15), 0.1, 75, None, 6.123233995736766e-17, 0),
-        D(32, None, z(32, Vector(x=370, y=-170), 0, 0, 1), z(32, Vector(x=370, y=-64), 0, 0, 1), False, 0, 1, None, None, 1, 0, Vector(1, 0), float('Infinity'), 0),
-        D(32, None, z(32, Vector(x=370, y=64), 0, 0, 1), z(32, Vector(x=370, y=170), 0, 0, 1), False, 0, 1, None, None, 1, 0, Vector(1, 0), float('Infinity'), 0),
-        D(32, None, z(32, Vector(x=-370, y=170), 0, 0, 1), z(32, Vector(x=-370, y=64), 0, 0, 1), False, 0, 1, None, None, 1, 0, Vector(-1, 0), float('Infinity'), 0),
-        D(32, None, z(32, Vector(x=-370, y=-64), 0, 0, 1), z(32, Vector(x=-370, y=-170), 0, 0, 1), False, 0, 1, None, None, 1, 0, Vector(-1, 0), float('Infinity'), 0),
-    ]
-    field.Rd = zb()
-
-    field_physics = FieldPhysics()
-    field_physics.C = [
-        z(32, Vector(x=378, y=-64), 0, 1, 0.1),
-        z(32, Vector(x=378, y=64), 0, 1, 0.1),
-        z(32, Vector(x=400, y=-42), 0, 1, 0.1),
-        z(32, Vector(x=400, y=42), 0, 1, 0.1),
-        z(32, Vector(x=400, y=42), 0, 1, 0.1),
-        z(32, Vector(x=-378, y=-64), 0, 1, 0.1),
-        z(32, Vector(x=-378, y=64), 0, 1, 0.1),
-        z(32, Vector(x=-400, y=-42), 0, 1, 0.1),
-        z(24, Vector(x=0, y=-200), 0, 6, 0.1),
-        z(24, Vector(x=0, y=-75), 0, 6, 0.1),
-        z(24, Vector(x=0, y=75), 0, 6, 0.1),
-        z(24, Vector(x=0, y=200), 0, 6, 0.1),  # 11
-        z(32, Vector(x=-370, y=-170), 0, 0, 1),
-        z(32, Vector(x=370, y=-170), 0, 0, 1),
-        z(32, Vector(x=370, y=-64), 0, 0, 1),
-        z(32, Vector(x=370, y=64), 0, 0, 1),
-        z(32, Vector(x=370, y=170), 0, 0, 1),
-        z(32, Vector(x=-370, y=170), 0, 0, 1),
-        z(32, Vector(x=-370, y=64), 0, 0, 1),
-        z(32, Vector(x=-370, y=-64), 0, 0, 1),
-    ]
-    field_physics.K = [
-        palla,
-        palo1,
-        palo2,
-        palo3,
-        palo4,
-        red_player_object,
-        blue_player_object,
-    ]
-    field_physics.O = field.O
-    field_physics.Yb = None
-    field_physics.Zb = -1
-    field_physics.ha = field.ha
-
-    game_play = GamePlay()
-    game_play.Ac = 61.68333333333111
-    game_play.Cb = 0
-    game_play.Ga = 0
-    game_play.Jd = red_team
-    game_play.Kb = 0
-    # game_play.Pa = None  # TODO da mettere Room qua, fatto
-    game_play.U = field
-    game_play.Yb = None
-    game_play.Zb = -1
-    game_play.ec = 0
-    game_play.fb = 14
-    game_play.kd = Vector(x=115.05294134865011, y=76.26196858894968) # Deve essere un'altra instanza di vettore!
-    game_play.pc = 0
-    game_play.wa = field_physics
-    game_play.xa = 0
-    game_play.zb = 1
-
-    room = Room()
-    room.D = [
-        host_user,
-        red_player,
-        blue_player
-    ]
-    room.Gc = False
-    room.H = game_play
-    room.U = field
-    room.Yb = None
-    room.Zb = -1
-    room.fb = 14
-    room.hb = [
-        None,
-        {'Tc': 16777215, 'Xc': 0, 'cb': [15035990]},
-        {'Tc': 16777215, 'Xc': 0, 'cb': [5671397]},
-    ]  # TODO: da tradurre ka
-    room.xa = 0
-
-    game_play.Pa = room
-
-    # Test!
-    print('red_player_object.a = ', red_player_object.a)
-    print('blue_player_object.a = ', blue_player_object.a)
-    print('palla.a = ', palla.a)
-    game_play.step(1)
-    print(palla.a)
-    game_play.step(1)
-    print(palla.a)
-    print(blue_player_object.a)
-    print(blue_player_object.M)
-    print('Done!')
-    started = time.time()
-    for i in range(1000):
-        game_play.step(1)
-    print(time.time() - started)
-    print(palla.a)
-    print('red_player_object.a = ', red_player_object.a)
-    print('blue_player_object.a = ', blue_player_object.a)

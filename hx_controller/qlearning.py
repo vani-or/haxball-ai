@@ -10,7 +10,7 @@ from threading import Lock
 from typing import List
 
 from config.config import settings
-from hx_controller import HXController
+from hx_controller import HXController, HXEnvironment
 import tensorflow as tf
 import keras
 import keras.layers as L
@@ -148,14 +148,21 @@ class QLearning:
     #     else:
     #         return np.argmax(q_values)
 
-    def one_step(self, prev_states: List, envs: List[BrowserEnvironment]):
+    def one_step(self, prev_states: List, envs: List[HXEnvironment]):
         qvalues = self.agent.get_qvalues(self.sess, prev_states)
         actions = [self.agent.sample_actions(np.expand_dims(qs, axis=0))[0] for qs in qvalues]
 
-        if self.thread_pool is None:
-            self.thread_pool = Pool(len(envs))
+        # if self.thread_pool is None:
+        #     self.thread_pool = Pool(len(envs))
 
-        next_states_r_done = self.thread_pool.map(lambda args: args[0].step(args[1]), zip(envs, actions))
+        for env, action in zip(envs, actions):
+            env.prepare_input(action)
+        # next_states_r_done = self.thread_pool.map(lambda args: args[0].step(args[1]), zip(envs, actions))
+
+        for i in range(3):
+            envs[0].gameplay.step(1)
+
+        next_states_r_done = [env.get_step_results() for env in envs]
 
         for i, res in enumerate(next_states_r_done):
             prev_state = prev_states[i]
@@ -166,28 +173,28 @@ class QLearning:
 
                 # Done è l'ultimo stato possibile:
                 # Qua semplicemente escludo le situazioni quando c'era un gol ma la palla non è ancora rimessa nel centro
-                if not env.game_finished or done:
-                    self.exp_replay.add(prev_state, action, r, next_s, done)
-                    inverted_prev_state = env.invert_state(prev_state)
-                    inverted_action = env.invert_action(action)
-                    inverted_next_s = env.invert_state(next_s)
-                    self.exp_replay.add(inverted_prev_state, inverted_action, r, inverted_next_s, done)
+                # if not env.game_finished or done:
+                self.exp_replay.add(prev_state, action, r, next_s, done)
+                inverted_prev_state = env.invert_state(prev_state)
+                inverted_action = env.invert_action(action)
+                inverted_next_s = env.invert_state(next_s)
+                self.exp_replay.add(inverted_prev_state, inverted_action, r, inverted_next_s, done)
 
         # train
         if self.step_number % settings['LEARNING_STEP_NUMBER'] == 0 and self.step_number > 0:
             _, loss_t = self.sess.run([self.train_step, self.td_loss], self.sample_batch(self.exp_replay, batch_size=settings['LEARNING_BATCH_SIZE']))
-            try:
-                logging.info('Step: %s, Training iteration, loss: %s' % (self.step_number, loss_t))
-            except:
-                pass
+            # try:
+            #     logging.info('Step: %s, Training iteration, loss: %s' % (self.step_number, loss_t))
+            # except:
+            #     pass
 
         # adjust agent parameters
         if self.step_number % settings['TARGET_Q_FUNCTION_UPDATE_STEP_NUMBER'] == 0:
             self.load_weigths_into_target_network(self.agent, self.target_network)
             self.agent.epsilon = max(self.agent.epsilon * settings['EPSILON_DISCOUNT_COEF'], settings['EPSILON_MIN_VALUE'])
             logging.info('Aggiono la target Q-function, new epsilon: %s' % self.agent.epsilon)
-            for env in envs:
-                env.release_all_buttons()
+            # for env in envs:
+            #     env.release_all_buttons()
             self.serialize()
 
         self.step_number += 1

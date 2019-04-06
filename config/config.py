@@ -1,6 +1,6 @@
 settings = {
     'GAMMA': 0.99,
-    'EPSILON_0': 0.0,
+    'EPSILON_0': 0.5,
     'EPSILON_DISCOUNT_COEF': 0.999,
     'EPSILON_MIN_VALUE': 0.0,
 
@@ -15,4 +15,6 @@ settings = {
     'ADAM_LEARNING_RATE': 1e-3,
 
     'ROOM_PASSWORD': 'hellokitty',
+
+    'VISUALIZE': 1,
 }
