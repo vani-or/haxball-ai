@@ -34,8 +34,8 @@ players = [
 if settings['VISUALIZE']:
     import pygame
     pygame.init()
-    size = width, height = 1024, 768
-    center = (width // 2, height // 2)
+    size = width, height = 900, 520
+    center = (width // 2, height // 2 + 30)
     black = 105, 150, 90
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("monospace", 44)

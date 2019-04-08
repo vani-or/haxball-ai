@@ -10,7 +10,7 @@ black = 105, 150, 90
 
 
 def format_time(seconds: Union[int, float]) -> str:
-    mins = int(seconds // 60)
+    mins = int(seconds // 60) % 60
     hours = int(seconds // 3600)
     secs = int(seconds % 60)
     return "{:0>2d}:{:0>2d}:{:0>2d}".format(hours, mins, secs)
@@ -61,9 +61,12 @@ def draw_frame(screen, gameplay: GamePlay):
 
     # Pali
     for i in range(4):
-        pygame.draw.circle(screen, (50, 50, 50),
+        pygame.draw.circle(screen, (100, 100, 100),
                            (center[0] + int(gameplay.wa.K[1 + i].a.x), center[1] + int(gameplay.wa.K[1 + i].a.y)),
                            gameplay.wa.K[1 + i].la, 0)
+        pygame.draw.circle(screen, (0, 0, 0),
+                           (center[0] + int(gameplay.wa.K[1 + i].a.x), center[1] + int(gameplay.wa.K[1 + i].a.y)),
+                           gameplay.wa.K[1 + i].la, 1)
 
     # Punteggio
     text = font.render("%s - %s" % (gameplay.Kb, gameplay.Cb), True, (0, 0, 0))

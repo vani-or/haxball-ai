@@ -50,9 +50,9 @@ class VirtualEnvironment(HXEnvironment):
                 self.gameplay.Pa.D[self.player_write_index].mb |= 4
             elif key == 'right':
                 self.gameplay.Pa.D[self.player_write_index].mb |= 8
-            elif key == 'space':
-                self.gameplay.Pa.D[self.player_write_index].mb |= 16
-                self.gameplay.Pa.D[self.player_write_index].bc = 1  # TODO: correggere
+            # elif key == 'space':
+            #     self.gameplay.Pa.D[self.player_write_index].mb |= 16
+            #     self.gameplay.Pa.D[self.player_write_index].bc = 1  # TODO: correggere
 
     def get_step_results(self):
         # Se è necessario inverto subito tutte le coordinate per giocare sempre la stessa squadra (Blue)
@@ -92,10 +92,10 @@ class VirtualEnvironment(HXEnvironment):
         # self.gameplay.U.Ed - meta' lunghezza
 
         # La distanza dalla palla alla porta dell'avversario (penalità)
-        reward -= math.sqrt((ball_pos_x + self.gameplay.U.Ed) ** 2 + ball_pos_y ** 2)
-
-        # La distanza dalla palla alla porta del giocatore (premio piccolo)
-        reward += 0.1 * math.sqrt((self.gameplay.U.Ed - ball_pos_x) ** 2 + ball_pos_y ** 2)
+        # reward -= math.sqrt((ball_pos_x + self.gameplay.U.Ed) ** 2 + ball_pos_y ** 2)
+        #
+        # # La distanza dalla palla alla porta del giocatore (premio piccolo)
+        # reward += 0.1 * math.sqrt((self.gameplay.U.Ed - ball_pos_x) ** 2 + ball_pos_y ** 2)
 
         # Distanza dal giocatore alla palla (divisa per due) (penalità)
         distanza_alla_palla = math.sqrt((ball_pos_x - player_pos_x) ** 2 + (ball_pos_y - player_pos_y) ** 2)
@@ -106,25 +106,25 @@ class VirtualEnvironment(HXEnvironment):
         # reward += self.prodotto_scalare(vett_palla_porta, (-game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']))
 
         # Velocità troppo bassa (penalità)
-        if not campo_bloccato:
-            velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
-            reward -= 100 * max(0.0, 0.5 - velocita_palla)
-
-        # Penalità se il giocatore e "davanti" alla palla
-        if player_pos_x < ball_pos_x:
-            reward -= (ball_pos_x - player_pos_x)
-
-        # Se il giocatore deve cominciare la partità facciamo la penalità incrementale
-        # if game_info['player']['team'] == game_info['init']['team'] and not game_info['init']['started']:
-        #     reward -= 0.25 * self.not_started_yet
-        #     self.not_started_yet += 1
-        # else:
-        #     self.not_started_yet = 0
-
         # if not campo_bloccato:
-        #     reward -= 0.25 * self.tempo
-        #     self.tempo += 1
-
+        #     velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
+        #     reward -= 100 * max(0.0, 0.5 - velocita_palla)
+        #
+        # # Penalità se il giocatore e "davanti" alla palla
+        # if player_pos_x < ball_pos_x:
+        #     reward -= (ball_pos_x - player_pos_x)
+        #
+        # # Se il giocatore deve cominciare la partità facciamo la penalità incrementale
+        # # if game_info['player']['team'] == game_info['init']['team'] and not game_info['init']['started']:
+        # #     reward -= 0.25 * self.not_started_yet
+        # #     self.not_started_yet += 1
+        # # else:
+        # #     self.not_started_yet = 0
+        #
+        # # if not campo_bloccato:
+        # #     reward -= 0.25 * self.tempo
+        # #     self.tempo += 1
+        #
         done = False
         goal_reward = 0
         if self.gameplay.red_scored:
@@ -140,7 +140,7 @@ class VirtualEnvironment(HXEnvironment):
                 goal_reward = 500
             done = True
 
-        reward += goal_reward
+        # reward += goal_reward
 
         state = [
             player_pos_x,
