@@ -6,6 +6,7 @@ from pychrome.tab import Tab
 
 from config.config import settings
 from hx_controller import HXController
+from simulator import create_start_conditions
 
 
 class BrowserEnvironment(HXController):
@@ -30,8 +31,8 @@ class BrowserEnvironment(HXController):
             # 16: bottone SPACE premuto (bool)
 
             12: distanza dal giocatore alla palla
-            # 13: no kick steps
             13: campo bloccato (1 se l'avversario deve ancora toccare la palla, 0 - se lo deve il giocatore o la partita è già iniziata)
+            # 14: tempo passato (t)
 
         Output (Azioni):
             0: NULL (aspettare / non fare niente)
@@ -89,22 +90,27 @@ class BrowserEnvironment(HXController):
         }
         initial_info = None
         while initial_info is None or not initial_info['player']:
-            initial_info = self._get_game_info()
+            initial_info = self.get_game_info()
             time.sleep(0.5)
 
         self.score = initial_info['score']
         self.red_team = initial_info['player']['team'] == 'Red'
         self.not_started_yet = 0
-        self.no_kick_steps = 0
-        self.last_velocity2 = float('Inf')
+        self.game_finished = False
+        self.tempo = 0
 
     @classmethod
-    def proj_a_on_b(cls, a, b):
-        return (a[0] * b[0] + a[1] * b[1]) / cls.lung(b)
+    def prodotto_scalare(cls, a, b):
+        return (a[0] * b[0] + a[1] * b[1]) / cls.lung(a) / cls.lung(b)
 
     @classmethod
     def lung(cls, a):
         return math.sqrt(a[0] ** 2 + a[1] ** 2)
+
+    def release_all_buttons(self):
+        for key, pressed in self._buttons_state.items():
+            if pressed:
+                self.send_button(key, up=True)
 
     def step(self, action):
         # Capire quali bottoni da premere
@@ -126,7 +132,7 @@ class BrowserEnvironment(HXController):
         if self._buttons_state['space']:
             self.send_button('space', up=True)
 
-        # Lasciare tutti i bottoni premuti, solo se non sono nel keys_to_press
+        # Lasciare tutti i bottoni premuti
         for key, pressed in self._buttons_state.items():
             if pressed and key not in keys_to_press:
                 self.send_button(key, up=True)
@@ -140,7 +146,7 @@ class BrowserEnvironment(HXController):
         time.sleep(settings['REWARD_WAIT_TIME'])
 
         # Ottengo l'info del gioco dal JavaScript
-        game_info = self._get_game_info()
+        game_info = self.get_game_info()
         if not game_info or not game_info['player'] or not game_info['opponent']:
             return
 
@@ -163,6 +169,9 @@ class BrowserEnvironment(HXController):
         else:
             campo_bloccato = game_info['init']['team'] == 'Red' and not game_info['init']['started']
 
+        if game_info['ball']['position']['x'] == 0 and game_info['ball']['position']['y'] == 0:
+            self.game_finished = False
+
         # # # # # REWARD # # # # #
         reward = 0
 
@@ -177,47 +186,44 @@ class BrowserEnvironment(HXController):
         reward -= distanza_alla_palla / 2
 
         # Velocità della palla verso la porta dell'avversario (però, va pensato bene, forse si deve contare solo i casi quando è il giocatore che tocca la palla, ma non l'avversario)
-        vett_palla_porta = (-game_info['field_size'][0] - game_info['ball']['position']['x'], -game_info['ball']['position']['y'])
-        reward += 50 * self.proj_a_on_b((game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']), vett_palla_porta)
+        # vett_palla_porta = (game_info['field_size'][0] + game_info['ball']['position']['x'], game_info['ball']['position']['y'])
+        # reward += self.prodotto_scalare(vett_palla_porta, (-game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']))
 
-        # Modulo della velocità (premio), non so cosa faccio per fargli smettere a svilupparsi la paura della palla
-        # reward += 20 * self.lung((game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']))
+        # Velocità troppo bassa (penalità)
+        if not campo_bloccato:
+            velocita_palla = math.sqrt(game_info['ball']['velocity']['x'] ** 2 + game_info['ball']['velocity']['y'] ** 2)
+            reward -= 100 * max(0.0, 0.5 - velocita_palla)
 
         # Penalità se il giocatore e "davanti" alla palla
         if game_info['player']['position']['x'] < game_info['ball']['position']['x']:
             reward -= (game_info['ball']['position']['x'] - game_info['player']['position']['x'])
 
-        # Penalità della velocità decrescente della palla (solo se il gioco è già cominciato)
-        if game_info['init']['started']:
-            # velocity2 = game_info['ball']['velocity']['x'] ** 2 + game_info['ball']['velocity']['y'] ** 2
-            # if velocity2 <= self.last_velocity2:
-            #     reward -= 0.1 * self.no_kick_steps
-            #     self.no_kick_steps += 1
-            # else:
-            #     self.no_kick_steps = 0
-            # self.last_velocity2 = velocity2
-            pass
-        else:
-            # Se il giocatore deve cominciare la partità facciamo la penalità incrementale
-            #if game_info['player']['team'] == game_info['init']['team']:
-            #    reward -= 0.1 * self.no_kick_steps
-            #    self.no_kick_steps += 1
-            #else:
-            #    self.no_kick_steps = 0
-            pass
+        # Se il giocatore deve cominciare la partità facciamo la penalità incrementale
+        # if game_info['player']['team'] == game_info['init']['team'] and not game_info['init']['started']:
+        #     reward -= 0.25 * self.not_started_yet
+        #     self.not_started_yet += 1
+        # else:
+        #     self.not_started_yet = 0
+
+        # if not campo_bloccato:
+        #     reward -= 0.25 * self.tempo
+        #     self.tempo += 1
 
         done = False
         # Anche qua, forse non va aggiunto sempre
         goal_reward = 0
         if game_info['score'][0] != 0 or game_info['score'][1] != 0:
-            if self.score[0] < game_info['score'][0]:
-                goal_reward = -1000
-                done = True
-            elif self.score[1] < game_info['score'][1]:
-                goal_reward = 1000
-                done = True
-            if self.red_team:
-                goal_reward *= -1
+            score_index = 0 if self.red_team else 1
+            if self.score[score_index] < game_info['score'][score_index]:
+                # premio, abbiamo segnato
+                goal_reward = 500
+                self.game_finished = True
+                self.tempo = 0
+            elif self.score[1 - score_index] < game_info['score'][1 - score_index]:
+                # penalità, abbiamo subito
+                goal_reward = -200
+                self.game_finished = True
+                self.tempo = 0
         reward += goal_reward
 
         self.score = game_info['score']
@@ -241,8 +247,8 @@ class BrowserEnvironment(HXController):
             # int(self._buttons_state['down']) if not self.red_team else int(self._buttons_state['up']),
             # int(self._buttons_state['space']),
             distanza_alla_palla,
-            # self.no_kick_steps,
-            int(campo_bloccato)
+            int(campo_bloccato),
+            # self.tempo
         ]
 
         return state, reward, done

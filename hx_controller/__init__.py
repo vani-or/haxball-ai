@@ -1,4 +1,6 @@
 import random
+from abc import ABC, abstractmethod
+from typing import Tuple
 
 from pychrome.tab import Tab
 import json
@@ -16,7 +18,7 @@ class HXController(object):
         }
         self.username = username
 
-    def _get_game_info(self):
+    def get_game_info(self):
         exec_result = self.browser_tab.Runtime.evaluate(expression='JSON.stringify(getHxInfo(%s))' % repr(self.username))
         if 'result' in exec_result and 'value' in exec_result['result']:
             result = json.loads(exec_result['result']['value'])
@@ -51,3 +53,20 @@ class HXController(object):
         actions = self.get_possible_actions()
         return random.choice(actions)
 
+
+class HXEnvironment(ABC):
+    @abstractmethod
+    def prepare_input(self, action: int):
+        ...
+
+    @abstractmethod
+    def get_step_results(self) -> Tuple[list, float, bool]:
+        ...
+
+    @abstractmethod
+    def invert_state(self, state: list) -> list:
+        ...
+
+    @abstractmethod
+    def invert_action(self, action: int) -> int:
+        ...

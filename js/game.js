@@ -1,6 +1,25 @@
 Content-Type: application/x-javascript
 
 
+// https://stackoverflow.com/a/14966131/1581927
+window.csv_rows = [];
+function add_to_csv(prev_row, new_row)
+{
+    var line = prev_row.concat(new_row);
+    window.csv_rows.push(line);
+}
+function download_csv()
+{
+    var csvContent = "data:text/csv;charset=utf-8,";
+    window.csv_rows.forEach(function(rowArray)
+    {
+       var row = rowArray.join(";");
+       csvContent += row + "\r\n";
+    });
+    var encodedUri = encodeURI(csvContent);
+    window.open(encodedUri);
+}
+
 window.last_frame = 0;
     var deflateRawOrig = pako.deflateRaw;
     pako.deflateRaw = function(args) {
@@ -1669,7 +1688,7 @@ window.last_frame = 0;
             // ORIG
             // window.document.addEventListener("keydown", F(this, this.nd));
             // INJECTION
-            console.log('injectKeyDown1', F(this, this.nd));
+            // console.log('injectKeyDown1', F(this, this.nd));
             // var that = this;
             // window.injectKeyDown = function(code) {console.log('that', that);return that;/*return that.mb.nd(code);*/};
             window.document.addEventListener("keydown", F(this, this.nd));
@@ -3840,10 +3859,10 @@ window.last_frame = 0;
                         this.Vb++;
                         ++c
                     }
-                    this.L.v(1);
+                    this.L.v(1); // la funzione principale del calcolo
                     this.ce += this.Vb;
                     this.Vb = 0;
-                    this.S++
+                    this.S++; // Frame number, ovvero, non frame ma numero di calcolazione eseguite
                 }
                 for (; c < d;) {
                     a = b[c];
@@ -3878,7 +3897,7 @@ window.last_frame = 0;
                         h.bf.Na && h.apply(c);
                         ++e
                     }
-                    c.v(g != k ? 1 : a - n);
+                    c.v(g != k ? 1 : a - n); // anche da qua
                     ++g
                 }
                 for (d = this.ti.list; 0 < d.length;)
@@ -5031,6 +5050,7 @@ window.last_frame = 0;
             }
         }
         ;
+        // BOTTONI. L'oggeto di input?
         Qa.prototype = {
             da: function () {
                 window.document.removeEventListener("focusout", F(this, this.qk))
@@ -5045,10 +5065,10 @@ window.last_frame = 0;
                 }
             },
             nd: function (a) {
-                this.Id |= Qa.Xj(a)
+                this.Id |= Qa.Xj(a); // Aggiunge un flag binario quando si preme un pottone
             },
             od: function (a) {
-                this.Id &= ~Qa.Xj(a)
+                this.Id &= ~Qa.Xj(a); // Toglie un flag binario
             },
             qk: function () {
                 if (null != this.Rf && 0 != this.Ef) {
@@ -5144,6 +5164,7 @@ window.last_frame = 0;
         ;
         V.tj = function () {
             var a = new V;
+            // Queste regole traducono i nome dei bottoni nelle azioni
             a.Ia("ArrowUp", "Up");
             a.Ia("KeyW", "Up");
             a.Ia("ArrowDown", "Down");
@@ -5793,6 +5814,7 @@ window.last_frame = 0;
                 var f = b[e];
                 ++e;
                 var g = f.yc;
+                // Il raggio della terra? :)
                 f.ve = 6378 * va.ur(.017453292519943295 * g.lc, .017453292519943295 * g.mc, .017453292519943295 * c, .017453292519943295 * d);
                 isFinite(f.ve) || (f.ve = 22E3)
             }
@@ -6150,6 +6172,7 @@ window.last_frame = 0;
         ;
         ta.prototype = {
             fo: function (a) {
+                // console.log('ta.fo(a), a=', a); // non è successo
                 this.Pa = a;
                 this.yo();
                 this.fb = a.fb;
@@ -6167,6 +6190,7 @@ window.last_frame = 0;
                 var a = new X;
                 this.ec = this.wa.K.length;
                 this.wa.K.push(a)
+                console.log('ta.yo(), a = new X, this.wa.K.push(a), this.wa.K=', this.wa.K); // nuova partita
             },
             Uj: function (a) {
                 if (a.$ == p.Fa)
@@ -6196,98 +6220,239 @@ window.last_frame = 0;
                 // INJECTION
                 // window._h = h;
                 window._this = this;
+
+                if(this.wa.K.length > 5 && this.wa.K[6] && this.wa.K[6].a) {
+                    var start_params = [
+                        this.wa.K[0].a.x,
+                        this.wa.K[0].a.y,
+                        this.wa.K[0].M.x,
+                        this.wa.K[0].M.y,
+                        this.wa.K[6].a.x,
+                        this.wa.K[6].a.y,
+                        this.wa.K[6].M.x,
+                        this.wa.K[6].M.y,
+                        this.Pa.D[2].mb,
+                        this.wa.K[5].a.x,
+                        this.wa.K[5].a.y,
+                        this.wa.K[5].M.x,
+                        this.wa.K[5].M.y,
+                        this.Pa.D[1].mb,
+                        this.Ac,
+                        this.Kb,
+                        this.Cb
+                    ];
+                }
+
                 if (0 < this.Ga)
                     120 > this.Ga && this.Ga--;
                 else {
                     var b = this.Pa.Yr;
-                    null != b && b();
+                    if(b != null)
+                    {
+                        b(); // ?
+                    }
+                    // Iterazione per i giocatori, this.Pa.D - la lista degli oggetti della classe ea (giocatori)
                     for (var c = this.Pa.D, b = this.wa.K[this.ec], d = 0; d < c.length;) {
+                        // c - un giocatore, b - oggetto fisico (saranno 6)
                         var e = c[d];
                         ++d;
-                        if (null != e.F) {
-                            var f = b.a
-                                , g = e.F.a
-                                , n = f.x - g.x
-                                , g = f.y - g.y
-                                , k = Math.sqrt(n * n + g * g) - b.la - e.F.la;
-                            0 == (e.mb & 16) && (e.bc = !1);
-                            f = this.U.Rd;
-                            if (e.bc && 4 > k) {
-                                if (0 != f.Kd) {
-                                    var k = Math.sqrt(n * n + g * g)
-                                        , h = f.Kd
-                                        , l = b.M
-                                        , m = b.M
-                                        , q = b.pa;
-                                    l.x = m.x + n / k * h * q;
-                                    l.y = m.y + g / k * h * q;
-                                    null != this.Pa.Oh && this.Pa.Oh(e)
+                        if (e.F != null) { // se c'è l'oggetto fisico
+                            var f = b.a // le coordinate della palla
+                                , g = e.F.a // posizione del giocatore
+                                , n = f.x - g.x // delta x
+                                , g = f.y - g.y // delta y
+                                , k = Math.sqrt(n * n + g * g) - b.la - e.F.la; // .la - raggio dell'oggetto. Distanza minima tra il giocatore e la palla
+                                // cioe: distanza tra i due meno raggio della palla meno il raggio del giocatore
+
+                            // Allora. e.mb - lo stato binario dell'input di un giocatore.
+                            /*
+                                Down: 2;
+                                Kick: 16;
+                                Left: 4;
+                                Right: 8;
+                                Up: 1;
+                                NULL: 0
                                 }
-                                e.bc = !1
+                             */
+                            if((e.mb & 16) == 0) // se non c'e il kick
+                            {
+                                e.bc = 0;
                             }
-                            k = e.mb;
+                            else {
+                                var put_breakpoint_here = 42; // succede quando si preme spazio!
+                                // console.log('spazio!'); // Spazio è attivo per 10-20 esecuzioni di questa funzione
+                            }
+                            f = this.U.Rd; // Variabile fisica del giocatore, forse il giocatore dell'utente
+                            if (e.bc && 4 > k) {
+                                // Eseguire il calcio perche' la palla e' vicina (<4px) e lo stato del bottone KICK non e' 0
+                                if (0 != f.Kd) { // se kickStrength non e' 0
+                                    // Entra qua quando la palla viene calciata
+                                    var k = Math.sqrt(n * n + g * g) // la distanza tra i centri
+                                        , h = f.Kd // kickStrength del giocatore dell'utente
+                                        , l = b.M // velocita' della palla
+                                        , m = b.M
+                                        , q = b.pa; // invMass della palla
+                                    l.x = m.x + n / k * h * q; // velocita' nuova della palla lungo x
+                                    l.y = m.y + g / k * h * q; // lungo y
+                                    if(this.Pa.Oh != null)
+                                    {
+                                        this.Pa.Oh(e); // il suono di un calcio?
+                                    }
+                                }
+                                e.bc = 0; // azzera lo stato del calcio
+                            }
+                            k = e.mb; // l'input del giocatore del ciclo
                             g = n = 0;
-                            0 != (k & 1) && --g;
-                            0 != (k & 2) && ++g;
-                            0 != (k & 4) && --n;
-                            0 != (k & 8) && ++n;
-                            0 != n && 0 != g && (k = Math.sqrt(n * n + g * g),
-                                n /= k,
-                                g /= k);
-                            k = e.F.M;
-                            h = e.bc ? f.Be : f.me;
-                            k.x += n * h;
-                            k.y += g * h;
-                            e.F.Ba = e.bc ? f.Ce : f.Ba
+                            // Gestione dei movimenti di input
+                            0 != (k & 1) && --g; // // vettore della direzione verso Y (UP)
+                            0 != (k & 2) && ++g; // vettore della direzione verso Y (DOWN)
+                            0 != (k & 4) && --n; // vettore della direzione verso X (LEFT)
+                            0 != (k & 8) && ++n; // vettore della direzione verso X (RIGHT)
+                            if(n != 0 && g != 0)
+                            {
+                                k = Math.sqrt(n * n + g * g);
+                                n /= k;
+                                g /= k; // normalizzazione del vettore di movimento
+                            }
+                            k = e.F.M; // velocita del giocatore su cui cicliamo
+                            h = e.bc ? f.Be : f.me; // accelerazione che varia a secondo se il giocatore calcia o no
+                            k.x += n * h; // cambiamo la velocita del giocatore
+                            k.y += g * h; // sulla Y
+                            e.F.Ba = e.bc ? f.Ce : f.Ba // damping o kickingDambing
                         }
                     }
-                    this.wa.v(a);
+                    this.wa.v(a); // un pezzo della fisica importante, riga ~8395, cerca "v: function (a) {"
                     if (0 == this.zb) {
-                        for (a = 0; a < c.length;)
-                            d = c[a],
-                                ++a,
-                            null != d.F && (d.F.h = 39 | this.Jd.mo);
+                        // this.zb == 0, partita non è cominciata (tocca a uno a toccare la palla)
+                        for (a = 0; a < c.length;) {
+                            d = c[a];
+                            ++a;
+                            // d.F è null quando un giocatore non presente sul campo. Cioè è un ogetto della classe X, geometria del giocatore
+                            if(d.F != null) {
+                                d.F.h = 39 | this.Jd.mo
+                            };
+                        }
                         c = b.M;
-                        0 < c.x * c.x + c.y * c.y && (this.zb = 1,
-                            c = this.kd,
-                            b = b.a,
-                            c.x = b.x,
-                            c.y = b.y)
+                        // Probabilmente verifica se la palla è stata toccata nell'inizio della partita
+                        if(c.x * c.x + c.y * c.y > 0)
+                        {
+                            this.zb = 1;
+                            c = this.kd;
+                            b = b.a;
+                            c.x = b.x;
+                            c.y = b.y;
+                        }
                     } else if (1 == this.zb) {
-                        this.Ac += .016666666666666666;
+                        // this.zb == 1, partita è cominciata, la palla è in movimento
+                        this.Ac += .016666666666666666; // è tutto finto qua. La funzione viene chiamata non ogni 16ms ma ininterrotamente. Poi ogni tot la variabile this.Ac viene sincronizzato con il tempo del Host (probabilmente)
+
+                        // Dimostrazione
+                        /*
+                        if(!window.started_real_time)
+                        {
+                            window.started_real_time = new Date().getTime();
+                            window.my_Ac = 0;
+                        }
+                        window.my_Ac += .016666666666666666;
+                        console.log(new Date().getTime() - window.started_real_time, this.Ac, window.my_Ac);
+                        */
+
                         for (a = 0; a < c.length;)
-                            d = c[a],
-                                ++a,
-                            null != d.F && (d.F.h = 39);
-                        c = this.U.Vm(b.a, this.kd);
-                        c != p.Fa ? (this.zb = 2,
+                        {
+                            d = c[a];
+                            ++a;
+                            if(d.F != null)
+                            {
+                                d.F.h = 39;
+                            }
+                        }
+
+
+                        // b.a - oggetto (classe X)
+                        // this.kd - posizione della palla
+                        c = this.U.Vm(b.a, this.kd); // cosa fa? forse verifica se è stato segnato un gol
+                        if(c != p.Fa)
+                        {   // Il caso di gol
+
+                            this.zb = 2,
                             this.pc = 150,
                             this.Jd = c,
                             c == p.ba ? this.Cb++ : this.Kb++,
-                        null != this.Pa.oi && this.Pa.oi(c.Tf),
-                        null != this.Pa.bl && this.Pa.bl(c.P)) : 0 < this.xa && this.Ac >= 60 * this.xa && this.Kb != this.Cb && (null != this.Pa.ri && this.Pa.ri(),
-                            this.Cl());
+                            null != this.Pa.oi && this.Pa.oi(c.Tf), // probabilmente gueste sono gli hook di animazione e suono del gol
+                            null != this.Pa.bl && this.Pa.bl(c.P); // uguale
+                        }
+                        else
+                        {
+                            /*
+                            this.Kb -> il punteggio della squadra rossa
+                            this.Cb -> il punteggio della squadra blu
+                             */
+                            if(0 < this.xa && this.Ac >= 60 * this.xa && this.Kb != this.Cb) // Può essere una vittoria per il timeout
+                            {
+                                if(null != this.Pa.ri)
+                                {
+                                    this.Pa.ri(); // Un altro hook, da scoprire quale
+                                }
+                                this.Cl(); // ?  Cl() è definito sotto
+                            }
+                        }
                         c = this.kd;
                         b = b.a;
                         c.x = b.x;
                         c.y = b.y
-                    } else if (2 == this.zb)
+                    } else if (2 == this.zb) {
+                        // this.zb == 2, partita è finita?
                         this.pc--,
                         0 >= this.pc && (0 < this.fb && (this.Kb >= this.fb || this.Cb >= this.fb) || 0 < this.xa && this.Ac >= 60 * this.xa && this.Kb != this.Cb ? this.Cl() : (this.Yj(),
                         null != this.Pa.tp && this.Pa.tp()));
-                    else if (3 == this.zb && (this.pc--,
-                    0 >= this.pc && (b = this.Pa,
-                    null != b.H))) {
-                        b.H = null;
-                        c = 0;
-                        for (a = b.D; c < a.length;)
-                            d = a[c],
-                                ++c,
-                                d.F = null,
-                                d.Bb = 0;
-                        null != b.Ze && b.Ze(null)
+                    }
+                    else if (3 == this.zb) // partita finita (punteggio massimo)
+                    {
+                        this.pc--;
+                        if(this.pc <= 0) {
+                            b = this.Pa;
+                            if (b.H != null) {
+                                b.H = null;
+                                c = 0;
+                                for (a = b.D; c < a.length;)
+                                {
+                                    d = a[c],
+                                        ++c,
+                                        d.F = null,
+                                        d.Bb = 0;
+                                }
+                                if(b.Ze != null)
+                                {
+                                    b.Ze(null);
+                                }
+                            }
+                        }
                     }
                 }
+                if(this.wa.K.length > 5 && this.wa.K[6] && this.wa.K[6].a && start_params)
+                {
+                    var end_params = [
+                        this.wa.K[0].a.x,
+                        this.wa.K[0].a.y,
+                        this.wa.K[0].M.x,
+                        this.wa.K[0].M.y,
+                        this.wa.K[6].a.x,
+                        this.wa.K[6].a.y,
+                        this.wa.K[6].M.x,
+                        this.wa.K[6].M.y,
+                        this.Pa.D[2].mb,
+                        this.wa.K[5].a.x,
+                        this.wa.K[5].a.y,
+                        this.wa.K[5].M.x,
+                        this.wa.K[5].M.y,
+                        this.Pa.D[1].mb,
+                        this.Ac,
+                        this.Kb,
+                        this.Cb
+                    ];
+                    // add_to_csv(start_params, end_params);
+                }
+                var abc=3+4;
             },
             Cl: function () {
                 this.pc = 300;
@@ -7004,20 +7169,22 @@ window.last_frame = 0;
                 return b.hash | 0
             },
             Vm: function (a, b) {
+                // Cosa fa?
                 for (var c = 0, d = this.kc; c < d.length;) {
                     var e = d[c];
                     ++c;
                     var f = e.R
                         , g = e.V
+                        , ff = false
                         , n = b.x - a.x
                         , k = b.y - a.y;
-                    0 < -(f.y - a.y) * n + (f.x - a.x) * k == 0 < -(g.y - a.y) * n + (g.x - a.x) * k ? f = !1 : (n = g.x - f.x,
+                    0 < -(f.y - a.y) * n + (f.x - a.x) * k == 0 < -(g.y - a.y) * n + (g.x - a.x) * k ? ff = !1 : (n = g.x - f.x,
                         g = g.y - f.y,
-                        f = 0 < -(a.y - f.y) * n + (a.x - f.x) * g == 0 < -(b.y - f.y) * n + (b.x - f.x) * g ? !1 : !0);
-                    if (f)
-                        return e.Yd
+                        ff = 0 < -(a.y - f.y) * n + (a.x - f.x) * g == 0 < -(b.y - f.y) * n + (b.x - f.x) * g ? !1 : !0);
+                    if (ff)
+                        return e.Yd; // Probabilmente restituisce questo oggetto (classe Squadra) per chi ha segnato un gol
                 }
-                return p.Fa
+                return p.Fa; // Forse è la squadra degli spectators
             },
             Pc: function (a, b, c, d, e, f, g, n) {
                 null == n && (n = 0);
@@ -8254,45 +8421,64 @@ window.last_frame = 0;
                 this.h = a.W();
                 this.B = a.W()
             },
-            $m: function (a) {
-                var b = this.a
+            $m: function (a) { // metodo dell'oggetto della palla che gestisce il rimbalzo
+                // a: oggetto del tipo X
+                var b = this.a // la posizione della palla
                     , c = a.a
-                    , d = b.x - c.x
-                    , b = b.y - c.y
-                    , e = a.la + this.la
-                    , f = d * d + b * b;
-                if (0 < f && f <= e * e) {
-                    var f = Math.sqrt(f)
-                        , d = d / f
-                        , b = b / f
-                        , c = this.pa / (this.pa + a.pa)
-                        , e = e - f
-                        , f = e * c
-                        , g = this.a
+                    , d = b.x - c.x // delta x posizione
+                    , b = b.y - c.y // delta y posizione
+                    , e = a.la + this.la // "la" e' il raggio. la "e" e' la somma dei raggi
+                    , f = d * d + b * b; // distanza alla due tra la palla e il oggetto
+                if (0 < f && f <= e * e) { // se la distanza tra la palla e il oggetto e' minore della somma dei loro raggi, cioe' sono a contatto
+                    var ff_orig = f;
+                    var f = Math.sqrt(f) // distanza pura
+                        , f_orig = f
+                        , e_orig = e
+                        , d = d / f // vettore-direzione che punta dall'oggettoa alla palla, comp. X
+                        , b = b / f // vettore-direzione che punta dall'oggettoa alla palla, comp. Y
+                        , c = this.pa / (this.pa + a.pa) // invMass. Massa ridotta fratto massa della palla
+                        , e = e - f // quanto sono sovrapposti
+                        , f = e * c // m_oggetto / (m_oggetto + m_palla) * sovrapposizione
+                        , g = this.a // posizione della palla
                         , h = this.a;
-                    g.x = h.x + d * f;
-                    g.y = h.y + b * f;
-                    h = g = a.a;
-                    e -= f;
-                    g.x = h.x - d * e;
+                    g.x = h.x + d * f; // posizione nuova della palla
+                    g.y = h.y + b * f; // uguale
+                    h = g = a.a; // posizione dell'oggetto
+                    var e_orig2 = e;
+                    var f_orig2 = f;
+                    e -= f; // m_palla / (m_oggetto + m_palla) * sovrapposizione
+                    g.x = h.x - d * e; // aggiorna la posizione dell'oggetto con la direzione opposta
                     g.y = h.y - b * e;
-                    e = this.M;
-                    f = a.M;
-                    e = d * (e.x - f.x) + b * (e.y - f.y);
-                    0 > e && (e *= this.l * a.l + 1,
-                        c *= e,
-                        g = f = this.M,
-                        f.x = g.x - d * c,
-                        f.y = g.y - b * c,
-                        a = f = a.M,
-                        c = e - c,
-                        f.x = a.x + d * c,
-                        f.y = a.y + b * c)
+                    e = this.M; // la velocita' della palla
+                    f = a.M; // la velocita' dell'oggetto
+                    e = d * (e.x - f.x) + b * (e.y - f.y); // proiezione della differenza delle velocita' sul vettore-direzione
+                    if(0 > e) // TODO: da verificare la traduzione
+                    {
+                        e *= this.l * a.l + 1;
+                        c *= e;
+                        g = f = this.M;
+                        f.x = g.x - d * c; // aggiornamento della velocita della palla
+                        f.y = g.y - b * c;
+                        a = f = a.M;
+                        c = e - c;
+                        f.x = a.x + d * c; // aggiornamento della velocita dell'oggetto
+                        f.y = a.y + b * c;
+                    }
+                    // 0 > e && (e *= this.l * a.l + 1,
+                    //     c *= e,
+                    //     g = f = this.M,
+                    //     f.x = g.x - d * c, // aggiornamento della velocita della palla
+                    //     f.y = g.y - b * c,
+                    //     a = f = a.M,
+                    //     c = e - c,
+                    //     f.x = a.x + d * c, // aggiornamento della velocita dell'oggetto
+                    //     f.y = a.y + b * c)
                 }
             },
             an: function (a) {
+                // Confini?
                 var b, c, d;
-                if (0 != 0 * a.tb) {
+                if (0 != 0 * a.tb) { // se a.tb==Infinity
                     b = a.R.a;
                     var e = a.V.a;
                     c = e.x - b.x;
@@ -8307,7 +8493,7 @@ window.last_frame = 0;
                     b = c.x;
                     c = c.y;
                     d = b * d + c * e
-                } else {
+                } else { // se a.tb è un numero
                     c = a.Hd;
                     d = this.a;
                     b = d.x - c.x;
@@ -8334,16 +8520,32 @@ window.last_frame = 0;
                     c = -c),
                 d < -e)
                     return;
-                d >= this.la || (d = this.la - d,
-                    f = e = this.a,
-                    e.x = f.x + b * d,
-                    e.y = f.y + c * d,
-                    d = this.M,
-                    d = b * d.x + c * d.y,
-                0 > d && (d *= this.l * a.l + 1,
-                    e = a = this.M,
-                    a.x = e.x - b * d,
-                    a.y = e.y - c * d))
+                if(this.la > d) // TODO: da verificare la traduzione
+                {
+                    d = this.la - d;
+                    f = e = this.a;
+                    e.x = f.x + b * d;
+                    e.y = f.y + c * d;
+                    d = this.M;
+                    d = b * d.x + c * d.y;
+                    if(0 > d)
+                    {
+                        d *= this.l * a.l + 1;
+                        e = a = this.M;
+                        a.x = e.x - b * d;
+                        a.y = e.y - c * d;
+                    }
+                }
+                // d >= this.la || (d = this.la - d,
+                //     f = e = this.a,
+                //     e.x = f.x + b * d,
+                //     e.y = f.y + c * d,
+                //     d = this.M,
+                //     d = b * d.x + c * d.y,
+                // 0 > d && (d *= this.l * a.l + 1,
+                //     e = a = this.M,
+                //     a.x = e.x - b * d,
+                //     a.y = e.y - c * d))
             },
             jc: function () {
                 var a = xa.uc
@@ -8394,29 +8596,91 @@ window.last_frame = 0;
                 }
             },
             v: function (a) {
+                // a == 1 sempre.  costante? velocità del mondo?
+
+                // Le velocità nuove degli oggetti
+                // this.K: oggetti:
+                // 0: la palla
+                // 1: un palo {x: 370, y: -64}
+                // 2: un palo {x: 370, y: 64}
+                // 3: un palo {x: -370, y: -64}
+                // 4: un palo {x: -370, y: 64}
+                // 5: un giocatore
+                // 6: un giocatore
                 for (var b = 0, c = this.K; b < c.length;) {
                     var d = c[b];
                     ++b;
-                    var e = d.a
-                        , f = d.a
-                        , g = d.M;
-                    e.x = f.x + g.x * a;
-                    e.y = f.y + g.y * a;
-                    f = e = d.M;
-                    d = d.Ba;
-                    e.x = f.x * d;
-                    e.y = f.y * d
+                    var e = d.a // a: posizione
+                        , f = d.a // uguale
+                        , g = d.M; // M: velocità
+                    e.x = f.x + g.x * a; // aggiornamento della posizione verso la X
+                    e.y = f.y + g.y * a; // aggiornamento della posizione verso la Y
+                    f = e = d.M; // metti la valocita nelle due variabili: "f" e "e"
+                    // Attenzeione, da qua la "e" e la "f" sono le velocità, non le posizioni
+                    d = d.Ba; // Il Damping dell'oggetto attuale
+                    e.x = f.x * d; // aggiornamento della velocita' dell'oggetto della X
+                    e.y = f.y * d // aggiornamento della velocita' dell'oggetto della Y
                 }
+                // Attenzione la "a" iniziale non serve più
                 a = 0;
-                for (b = this.K.length; a < b;) {
+                for (b = this.K.length; a < b;) { // di nuovo facciamo la iterazione per gli oggetti (K)
                     d = a++;
                     c = this.K[d];
                     d += 1;
-                    for (e = this.K.length; d < e;)
+                    for (e = this.K.length; d < e;) // ciclo su tutte le coppie degli oggetti. Dove la "c" e' il primo oggetto della coppia, la "f" e' il secondo
                         f = this.K[d++],
+                            // B: 0 per la palla, -1 per i pali, 2 per il giocatore1, 4 per il giocatore2
+                            // h: -1 per la palla e i pali, 39 per i giocatori
                         0 != (f.h & c.B) && 0 != (f.B & c.h) && c.$m(f);
+                        /*
+                        if(0 != (f.h & c.B) && 0 != (f.B & c.h))
+                        {
+                            c.$m(f);
+                        }
+                         */
+                    // pa: 1 per la palla, 0 per i pali, 0.5 per i giocatori
                     if (0 != c.pa) {
                         d = 0;
+                        // this.ha: sei elementi della classe I. Esempio:
+                        /*
+                        0:
+                            B: 32
+                            Oa: -200
+                            h: -1
+                            l: 0
+                            sa: M {x: 0, y: 1}
+                        1:
+                            B: 32
+                            Oa: -200
+                            h: -1
+                            l: 0
+                            sa: M {x: 0, y: -1}
+                        2:
+                            B: 32
+                            Oa: -420
+                            h: -1
+                            l: 0
+                            sa: M {x: 1, y: 0}
+                        3:
+                            B: 32
+                            Oa: -420
+                            h: -1
+                            l: 0
+                            sa: M {x: -1, y: 0}
+                        4:
+                            B: 32
+                            Oa: -170
+                            h: 1
+                            l: 1
+                            sa: M {x: 0, y: 1}
+                        5:
+                            B: 32
+                            Oa: -170
+                            h: 1
+                            l: 1
+                            sa: M {x: 0, y: -1}
+                         */
+                        // Non capisco questo pezzo
                         for (e = this.ha; d < e.length;)
                             if (f = e[d],
                                 ++d,
@@ -8440,6 +8704,7 @@ window.last_frame = 0;
                                 }
                             }
                         d = 0;
+                        // this.O: 14 elementi della classe D. confini?
                         for (e = this.O; d < e.length;)
                             f = e[d],
                                 ++d,

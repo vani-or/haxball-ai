@@ -64,7 +64,7 @@ if __name__ == '__main__':
         return handler
 
     tabs = []
-    for i in range(2):
+    for i in range(1):
         br = Chrome(port=9223)
         br.launch()
         tab = br.get_chrome_tab('tab' + str(i))
@@ -103,7 +103,7 @@ if __name__ == '__main__':
         i = 0
         while True:
             i += 1
-            # info = hx._get_game_info()
+            # info = hx.get_game_info()
             if prev_state is None:
                 prev_state = hx.step(0)
                 if prev_state is not None:

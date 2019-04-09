@@ -12,6 +12,32 @@ room.onPlayerJoin = function(player) {
     {
         room.setPlayerAdmin(player.id, 1);
     }
+
+    // Metto il giocatore nuovo nella squadra vuota
+    if(player.name.endsWith('_'))
+    {
+        var free_teams = [1, 1];
+        var players = room.getPlayerList();
+        for(var i=0; i < players.length; i++)
+        {
+            if(players[i].team > 0)
+            {
+                free_teams[players[i].team - 1] = 0;
+            }
+        }
+
+        if(free_teams[0])
+        {
+            // Move to red, if possible
+            room.setPlayerTeam(player.id, 1);
+        }
+        else if(free_teams[1])
+        {
+            // Move to blue, if possible
+            room.setPlayerTeam(player.id, 2);
+            room.startGame();
+        }
+    }
 };
 
 // 3. Ottenere il link

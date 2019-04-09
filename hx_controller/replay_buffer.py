@@ -8,7 +8,7 @@ import random
 
 
 class ReplayBuffer(object):
-    def __init__(self, size):
+    def __init__(self, size, observation_size: int, observation_dtype='float32', action_dtype='uint8', reward_dtype='float32'):
         """Create Replay buffer.
         Parameters
         ----------
@@ -16,42 +16,56 @@ class ReplayBuffer(object):
             Max number of transitions to store in the buffer. When the buffer
             overflows the old memories are dropped.
         """
-        self._storage = []
         self._maxsize = int(size)
+        self._filled_once = False
+        self._observation_size = observation_size
+
+        self._obs_t = np.zeros(shape=(self._maxsize, self._observation_size), dtype=observation_dtype)
+        self._obs_tp1 = np.zeros(shape=(self._maxsize, self._observation_size), dtype=observation_dtype)
+        self._action = np.zeros(shape=(self._maxsize, ), dtype=action_dtype)
+        self._reward = np.zeros(shape=(self._maxsize, ), dtype=reward_dtype)
+        self._done = np.zeros(shape=(self._maxsize, ), dtype='uint8')
+
         self._next_idx = 0
-        previous_buffers = sorted([x for x in os.listdir('buffers') if '.pkl' in x])
+
+        previous_buffers = sorted([x for x in os.listdir('buffers') if x.endswith('.npz')])
         if previous_buffers:
-            with open('buffers/' + previous_buffers[-1], 'rb') as fp:
-                self._storage = pickle.load(fp)
-                self._next_idx = len(self._storage)
+            fn = 'buffers/' + previous_buffers[-1]
+            npzfile = np.load(fn)
+            self._obs_t = npzfile['obs_t']
+            self._obs_tp1 = npzfile['obs_tp1']
+            self._action = npzfile['action']
+            self._reward = npzfile['reward']
+            self.done = npzfile['done']
+            self._next_idx = npzfile['next_idx']
 
     def __len__(self):
-        return len(self._storage)
+        if self._filled_once:
+            return self._maxsize
+        else:
+            return self._next_idx
 
     def add(self, obs_t, action, reward, obs_tp1, done):
-        data = (obs_t, action, reward, obs_tp1, done)
-
-        if self._next_idx >= len(self._storage):
-            self._storage.append(data)
-        else:
-            self._storage[self._next_idx] = data
+        self._obs_t[self._next_idx] = obs_t
+        self._action[self._next_idx] = action
+        self._reward[self._next_idx] = reward
+        self._obs_tp1[self._next_idx] = obs_tp1
+        self._done[self._next_idx] = done
 
         if self._next_idx > 0 and self._next_idx == self._maxsize - 1:
             self.serialize()
+            self._filled_once = True
 
         self._next_idx = (self._next_idx + 1) % self._maxsize
 
     def _encode_sample(self, idxes):
-        obses_t, actions, rewards, obses_tp1, dones = [], [], [], [], []
-        for i in idxes:
-            data = self._storage[i]
-            obs_t, action, reward, obs_tp1, done = data
-            obses_t.append(np.array(obs_t, copy=False))
-            actions.append(np.array(action, copy=False))
-            rewards.append(reward)
-            obses_tp1.append(np.array(obs_tp1, copy=False))
-            dones.append(done)
-        return np.array(obses_t), np.array(actions), np.array(rewards), np.array(obses_tp1), np.array(dones)
+        obses_t = self._obs_t[idxes]
+        actions = self._action[idxes]
+        rewards = self._reward[idxes]
+        obses_tp1 = self._obs_tp1[idxes]
+        dones = self._done[idxes]
+
+        return obses_t, actions, rewards, obses_tp1, dones
 
     def sample(self, batch_size):
         """Sample a batch of experiences.
@@ -73,10 +87,21 @@ class ReplayBuffer(object):
             done_mask[i] = 1 if executing act_batch[i] resulted in
             the end of an episode and 0 otherwise.
         """
-        idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]
+        if self._filled_once:
+            idxes = np.random.randint(self._maxsize, size=batch_size)
+        else:
+            idxes = np.random.randint(self._next_idx, size=batch_size)
         return self._encode_sample(idxes)
 
     def serialize(self):
-        filename = 'buffers/buffer_%s.pkl' % datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        with open(filename, 'wb') as fp:
-            pickle.dump(self._storage, fp)
+        filename = 'buffers/buffer_%s.npz' % datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        np.savez(
+            filename,
+            obs_t=self._obs_t,
+            action=self._action,
+            reward=self._reward,
+            obs_tp1=self._obs_tp1,
+            done=self._done,
+            next_idx=self._next_idx
+        )
+
