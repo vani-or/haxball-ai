@@ -76,6 +76,18 @@ class BrowserEnvironment(HXController):
             8: ('left', 'up'),
             9: ('space', ),
         }
+        self.action_2_symbol = {
+            0: ' ',
+            1: '↑',
+            2: '↗',
+            3: '→',
+            4: '↘',
+            5: '↓',
+            6: '↙',
+            7: '←',
+            8: '↖',
+            9: 'S',
+        }
         initial_info = None
         while initial_info is None or not initial_info['player']:
             initial_info = self.get_game_info()

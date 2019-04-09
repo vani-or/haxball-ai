@@ -60,5 +60,4 @@ class DQNAgent:
 
     def load_model(self):
         if os.path.exists(self.filename):
-            
             self.model.load_weights(self.filename)

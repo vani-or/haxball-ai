@@ -1,3 +1,4 @@
+import curses
 import logging
 import random
 import time
@@ -31,9 +32,21 @@ def inject(js):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG, format='%(levelname)s\t%(asctime)s (%(threadName)-9s) %(message)s')
+    logging.basicConfig(level=logging.ERROR, format='%(levelname)s\t%(asctime)s (%(threadName)-9s) %(message)s')
 
     room_url = input('Please enter room url: ')
+
+    stdscr = None
+    try:
+        stdscr = curses.initscr()
+        curses.start_color()
+        curses.use_default_colors()
+        curses.init_pair(1, curses.COLOR_RED, -1)
+        curses.init_pair(2, curses.COLOR_CYAN, -1)
+        # curses.noecho()
+        # curses.cbreak()
+    except:
+        pass
 
     def requestIntercepted(tab):
         def handler(*args, **kwargs):
@@ -83,7 +96,7 @@ if __name__ == '__main__':
         hx_controllers.append(hx)
 
     # Qlearning instance
-    qlearning = QLearning(buffer_size=settings['EXP_REPLAY_BUFFER_SIZE'])
+    qlearning = QLearning(buffer_size=settings['EXP_REPLAY_BUFFER_SIZE'], stdscr=stdscr)
 
     def run_hx(hx: BrowserEnvironment):
         prev_state = None
