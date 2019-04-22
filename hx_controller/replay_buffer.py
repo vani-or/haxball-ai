@@ -53,7 +53,7 @@ class ReplayBuffer(object):
         self._done[self._next_idx] = done
 
         if self._next_idx > 0 and self._next_idx == self._maxsize - 1:
-            self.serialize()
+            # self.serialize()
             self._filled_once = True
 
         self._next_idx = (self._next_idx + 1) % self._maxsize

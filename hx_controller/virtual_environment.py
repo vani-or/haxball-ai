@@ -106,9 +106,9 @@ class VirtualEnvironment(HXEnvironment):
         # reward += self.prodotto_scalare(vett_palla_porta, (-game_info['ball']['velocity']['x'], game_info['ball']['velocity']['y']))
 
         # Velocità troppo bassa (penalità)
-        if not campo_bloccato:
-            velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
-            reward -= 100 * max(0.0, 0.5 - velocita_palla)
+        # if not campo_bloccato:
+        #     velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
+        #     reward -= 100 * max(0.0, 0.5 - velocita_palla)
 
         # Penalità se il giocatore e "davanti" alla palla
         if player_pos_x < ball_pos_x:
@@ -129,7 +129,7 @@ class VirtualEnvironment(HXEnvironment):
         goal_reward = 0
         if self.gameplay.red_scored:
             if self.squadra_rossa:
-                goal_reward = 500
+                goal_reward = 1000
             else:
                 goal_reward = -200
             done = True
@@ -137,7 +137,7 @@ class VirtualEnvironment(HXEnvironment):
             if self.squadra_rossa:
                 goal_reward = -200
             else:
-                goal_reward = 500
+                goal_reward = 1000
             done = True
 
         reward += goal_reward

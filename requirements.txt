@@ -4,3 +4,7 @@ pychrome==0.2.2
 tensorflow==1.13.1
 names==0.3.0
 pygame==1.9.5
+gym==0.12.1
+tqdm
+pandas
+pytest

@@ -694,6 +694,23 @@ class GamePlay:
         if self.Pa.pi is not None:
             self.Pa.pi(p.ba if self.Kb > self.Cb else p.ta)  # TODO p.ba, p.ta saranno le classi delle squadre Rossa e Blu, poco importante
 
+    def reset(self):
+        create_start_conditions(
+            posizione_palla=Vector(0, 0),
+            velocita_palla=Vector(0, 0),
+            posizione_blu=Vector(277.5, 0),
+            velocita_blu=Vector(0, 0),
+            input_blu=0,
+            posizione_rosso=Vector(-277.5, 0),
+            velocita_rosso=Vector(0, 0),
+            input_rosso=0,
+            tempo_iniziale=0,
+            punteggio_rosso=0,
+            punteggio_blu=0,
+            commincia_rosso=True,
+            game_play_instance=self
+        )
+
 
 def create_start_conditions(
         posizione_palla: Union[None, Vector] = None,
@@ -707,7 +724,8 @@ def create_start_conditions(
         tempo_iniziale: float = 0,
         punteggio_rosso: int = 0,
         punteggio_blu: int = 0,
-        commincia_rosso: bool = True
+        commincia_rosso: bool = True,
+        game_play_instance: Union[None, GamePlay] = None
 ):
     if posizione_palla is None:
         posizione_palla = Vector(0, 0)
@@ -1036,7 +1054,10 @@ def create_start_conditions(
     field_physics.ha = field.ha
     field.spec_team_inst = spectators_team
 
-    game_play = GamePlay()
+    if game_play_instance is None:
+        game_play = GamePlay()
+    else:
+        game_play = game_play_instance
     game_play.Ac = tempo_iniziale
     game_play.Cb = punteggio_blu
     game_play.Ga = 0
