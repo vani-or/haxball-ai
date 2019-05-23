@@ -45,7 +45,7 @@ class Haxball(Env):
 
     def __init__(self, gameplay: Optional[GamePlay]=None, max_ticks=600) -> None:
         self.action_space = Discrete(10)
-        self.observation_space = Box(low=-5000, high=5000, shape=(10, ))
+        self.observation_space = Box(low=-5000, high=5000, shape=(14, ))
         self.reward_range = (-10_000, 10_000)
 
         self._red_player_read_index = 5
@@ -113,7 +113,12 @@ class Haxball(Env):
     def lung(cls, a):
         return math.sqrt(a[0] ** 2 + a[1] ** 2)
 
-    def get_observation(self, red_team:bool, state_only=False):
+    @staticmethod
+    def ball_position_rew(x, y):
+        x1 = x
+        return -25 * x1 * math.exp(-((y ** 2) / (x1 ** 2))) + 25
+
+    def get_observation(self, red_team: bool, state_only=False):
         # Lettura degli stati
         cur_read_index = self._red_player_read_index if red_team else self._blue_player_read_index
         opponent_read_index = self._blue_player_read_index if red_team else self._red_player_read_index
@@ -154,30 +159,45 @@ class Haxball(Env):
         # self.gameplay.U.Ed - meta' lunghezza
 
         # La distanza dalla palla alla porta dell'avversario (penalità)
-        reward -= math.sqrt((ball_pos_x + self.gameplay.U.Ed) ** 2 + ball_pos_y ** 2)
+        # distanza_palla_porta_avversario = math.sqrt((ball_pos_x + self.gameplay.U.Ed) ** 2 + ball_pos_y ** 2)
+        # reward -= 0.01 * distanza_palla_porta_avversario
+        # reward -= 0.0001*((ball_pos_x + self.gameplay.U.Ed) ** 2 + ball_pos_y ** 2)
 
         # La distanza dalla palla alla porta del giocatore (premio piccolo)
-        reward += 0.1 * math.sqrt((self.gameplay.U.Ed - ball_pos_x) ** 2 + ball_pos_y ** 2)
+        # reward += 0.1 * math.sqrt((self.gameplay.U.Ed - ball_pos_x) ** 2 + ball_pos_y ** 2)
+        # reward += 0.1 * ((self.gameplay.U.Ed - ball_pos_x) ** 2 + ball_pos_y ** 2)
 
         # Distanza dal giocatore alla palla (divisa per due) (penalità)
         distanza_alla_palla = math.sqrt((ball_pos_x - player_pos_x) ** 2 + (ball_pos_y - player_pos_y) ** 2)
-        reward -= 0.1 * distanza_alla_palla
+        reward -= 0.5 * distanza_alla_palla
+
+        # if abs(ball_pos_x) >= 1:
+        #    norm_x = ball_pos_x / self.gameplay.U.Ed
+        #    norm_y = -ball_pos_y / self.gameplay.U.Dd
+        #    # gr = -25 * norm_x * math.exp(-((norm_y**2)/(norm_x**2))) - 25
+        #    gr = self.ball_position_rew(norm_x, norm_y)
+        #    reward += gr
 
         # reward += player_vel_x ** 2 + player_vel_y ** 2
 
         # Velocità della palla verso la porta dell'avversario (però, va pensato bene, forse si deve contare solo i casi quando è il giocatore che tocca la palla, ma non l'avversario)
-        if ball_vel_x != 0 and ball_vel_y != 0:
-            vett_palla_porta = (self.gameplay.U.Ed + ball_pos_x, ball_pos_y)
-            reward += self.prodotto_scalare(vett_palla_porta, (-ball_vel_x, ball_vel_y))
+        # if abs(ball_vel_x) > 0.01 or abs(ball_vel_y) > 0.01:
+        #     vett_palla_porta = (self.gameplay.U.Ed + ball_pos_x, ball_pos_y)
+        #     ps = self.prodotto_scalare(vett_palla_porta, (-ball_vel_x, ball_vel_y))
+        #     if ps < 0:
+        #         ps /= 2
+        #     reward += 100 * ps
+        # velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
+        # reward += 50 * velocita_palla
 
         # Velocità troppo bassa (penalità)
         # if not campo_bloccato:
         #     velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
         #     reward -= 100 * max(0.0, 0.5 - velocita_palla)
 
-        # Penalità se il giocatore e "davanti" alla palla
-        if player_pos_x < ball_pos_x:
-            reward -= (ball_pos_x - player_pos_x)
+        # Penalità se il giocatore e' "davanti" alla palla
+        # if player_pos_x < ball_pos_x:
+        #     reward -= (ball_pos_x - player_pos_x)
 
         # Se il giocatore deve cominciare la partità facciamo la penalità incrementale
         # if game_info['player']['team'] == game_info['init']['team'] and not game_info['init']['started']:
@@ -186,23 +206,27 @@ class Haxball(Env):
         # else:
         #     self.not_started_yet = 0
 
-        # if not campo_bloccato:
-        #     reward -= 0.25 * self.tempo
-        #     self.tempo += 1
+        # if not campo_bloccato and ball_pos_y == 0 and ball_pos_x == 0:
+        #     reward -= 10
+
+        # if campo_bloccato:
+        #     reward = -0.5 * distanza_alla_palla
 
         done = False
         goal_reward = 0
         if self.gameplay.red_scored:
-            if red_team:
-                goal_reward = 1000
-            else:
-                goal_reward = -200
+            print('gol from red')
+            # if red_team:
+            #     goal_reward = 20000
+            # else:
+            #     goal_reward = -0
             done = True
         elif self.gameplay.blue_scored:
-            if red_team:
-                goal_reward = -200
-            else:
-                goal_reward = 1000
+            print('gol from blue')
+            # if red_team:
+            #     goal_reward = -0
+            # else:
+            #     goal_reward = 20000
             done = True
 
         reward += goal_reward
@@ -212,15 +236,16 @@ class Haxball(Env):
             player_pos_y,
             player_vel_x,
             player_vel_y,
-            # opponent_pos_x,
-            # opponent_pos_y,
-            # opponent_vel_x,
-            # opponent_vel_y,
+            opponent_pos_x,
+            opponent_pos_y,
+            opponent_vel_x,
+            opponent_vel_y,
             ball_pos_x,
             ball_pos_y,
             ball_vel_x,
             ball_vel_y,
             distanza_alla_palla,
+            # velocita_palla,
             int(campo_bloccato)
         ]
 
@@ -238,7 +263,7 @@ class Haxball(Env):
         self.prepare_input(action, red_team=True)
 
         # Il tempo che corre
-        for i in range(6):
+        for i in range(3):
             self.gameplay.step(1)
 
         # if self.rendered:
@@ -249,6 +274,21 @@ class Haxball(Env):
         self._ticks += 1
 
         return self.get_observation(red_team=True)
+
+    def step_async(self, action, red_team):
+        self.prepare_input(action, red_team)
+        # Il tempo che corre
+        # for i in range(3):
+        #     self.gameplay.step(1)
+        # self._ticks += 1
+
+    def step_wait(self, red_team):
+        return self.get_observation(red_team)
+
+    def step_physics(self):
+        for i in range(6):
+            self.gameplay.step(1)
+        self._ticks += 1
 
     def step_two_agents(self, actions: list):
         # Invio degli input
@@ -335,3 +375,4 @@ class Haxball(Env):
         elif action == 8:
             return 6
         return action
+

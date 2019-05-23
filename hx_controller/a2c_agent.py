@@ -5,6 +5,7 @@ import tensorflow as tf
 import numpy as np
 
 from hx_controller.haxball_gym import Haxball
+from hx_controller.haxball_vecenv import HaxballSubProcVecEnv
 from simulator import GamePlay
 
 
@@ -19,15 +20,15 @@ class Agent:
                 self.model = load_model('model.h5')
             else:
                 inp = Input(state_shape)
-                # dense0 = Dense(64, activation='tanh')(inp)
-                # dense1 = Dense(256, activation='tanh')(dense0)
-                dense2 = Dense(128, activation='relu', kernel_initializer='zeros', bias_initializer='ones')(inp)
-                dense3 = Dense(64, activation='sigmoid', kernel_initializer='zeros', bias_initializer='ones')(dense2)
-                dense4 = Dense(32, activation='relu', kernel_initializer='zeros', bias_initializer='ones')(dense3)
+                dense0 = Dense(64, activation='tanh', kernel_initializer='ones', bias_initializer='ones')(inp)
+                dense1 = Dense(256, activation='tanh', kernel_initializer='ones', bias_initializer='ones')(dense0)
+                dense2 = Dense(128, activation='relu', kernel_initializer='ones', bias_initializer='ones')(dense1)
+                dense3 = Dense(64, activation='relu', kernel_initializer='ones', bias_initializer='ones')(dense2)
+                dense4 = Dense(32, activation='tanh', kernel_initializer='ones', bias_initializer='ones')(dense3)
 
-                logits = Dense(n_actions, activation='linear', kernel_initializer='zeros', bias_initializer='ones')(dense4)
+                logits = Dense(n_actions, activation='linear', kernel_initializer='ones', bias_initializer='ones')(dense4)
                 # probs = Activation('softmax')(logits)
-                state_value = Dense(1, activation='linear', kernel_initializer='zeros', bias_initializer='ones')(dense4)
+                state_value = Dense(1, activation='linear', kernel_initializer='ones', bias_initializer='ones')(dense4)
 
                 self.model = Model(inputs=inp, outputs=[logits, state_value])
 
@@ -70,14 +71,11 @@ class Agent:
 if __name__ == '__main__':
     # We scale rewards to avoid exploding gradients during optimization.
     reward_scale = 1.0
-    def make_env():
-        gameplay = GamePlay()
-        gameplay.reset()
-        return Haxball(gameplay=gameplay)
 
     sess = tf.InteractiveSession()
 
-    env = make_env()
+    nenvs = 100
+    env = HaxballSubProcVecEnv(num_fields=nenvs, max_ticks=int(60 * 3 * (1 / 0.1)))
 
     obs_shape = env.observation_space.shape
     n_actions = env.action_space.n
@@ -97,7 +95,7 @@ if __name__ == '__main__':
 
     def evaluate(agent, env, n_games=1):
         """Plays an a game from start till done, returns per-game rewards """
-        env.envs[0].render()
+        # env.render()
         game_rewards = []
         for _ in range(n_games):
             states = env.reset()
@@ -114,76 +112,96 @@ if __name__ == '__main__':
 
             # We rescale the reward back to ensure compatibility
             # with other evaluations.
-            game_rewards.append(total_reward / len(env.envs))
-        env.envs[0].render('disable')
+            game_rewards.append(total_reward / env.num_envs)
+        # env.render('disable')
         return game_rewards
 
     # env.render()
     # evaluate(agent, env, n_games=3)
 
-    class EnvBatch:
-        def __init__(self, n_envs=10):
-            """ Creates n_envs environments and babysits them for ya' """
-            # self.envs = [make_env() for _ in range(n_envs)]
-            assert n_envs % 2 == 0, 'non numero pari'
+    # batch_states = env.reset()
+    #
+    # batch_actions = agent.sample_actions(agent.step(batch_states))
+    #
+    # batch_next_states, batch_rewards, batch_done, _ = env.step(batch_actions)
+    #
+    # print("State shape:", batch_states.shape)
+    # print("Actions:", batch_actions[:3])
+    # print("Rewards:", batch_rewards[:3])
+    # print("Done:", batch_done[:3])
 
-            self.envs = []
-            for _ in range(n_envs // 2):
-                gameplay = GamePlay()
-                gameplay.reset()
-                env = Haxball(gameplay=gameplay)
-                # env.render()
-                self.envs.append(env)
-            # self.envs = [make_env() for _ in range(n_envs // 2)]
-
-        def reset(self):
-            """ Reset all games and return [n_envs, *obs_shape] observations """
-            states = []
-            for env in self.envs:
-                states += env.reset()
-            return np.squeeze(np.array(states))
-
-        def step(self, actions):
-            """
-            Send a vector[batch_size] of actions into respective environments
-            :returns: observations[n_envs, *obs_shape], rewards[n_envs], done[n_envs,], info[n_envs]
-            # """
-            # results = [env.step(a) for env, a in zip(self.envs, actions)]
-            # new_obs, rewards, done, infos = map(np.array, zip(*results))
-            #
-            # # reset environments automatically
-            # for i in range(len(self.envs)):
-            #     if done[i]:
-            #         new_obs[i] = self.envs[i].reset()
-            #
-            # return new_obs, rewards, done, infos
-            all_results = []
-            for env, a1, a2 in zip(self.envs, actions[0::2], actions[1::2]):
-                results = env.step_two_agents([a1, a2])
-
-                if results[0][2]:  # Done
-                    new_obs = env.reset()
-                    results[0] = (new_obs[0], *results[0][1:])
-                    results[1] = (new_obs[1], *results[1][1:])
-
-                all_results += results
-
-            new_obs, rewards, done, infos = map(np.array, zip(*all_results))
-
-            return new_obs, rewards, done, infos
-
-    env_batch = EnvBatch(20)
-
-    batch_states = env_batch.reset()
-
-    batch_actions = agent.sample_actions(agent.step(batch_states))
-
-    batch_next_states, batch_rewards, batch_done, _ = env_batch.step(batch_actions)
-
-    print("State shape:", batch_states.shape)
-    print("Actions:", batch_actions[:3])
-    print("Rewards:", batch_rewards[:3])
-    print("Done:", batch_done[:3])
+    #########################OPENAI#################################
+    # nsteps = 1
+    # nenvs = env.num_envs
+    # nbatch = nenvs * nsteps
+    #
+    # with tf.variable_scope('a2c_model', reuse=tf.AUTO_REUSE):
+    #     # step_model is used for sampling
+    #     step_model = policy(None, 1, sess)
+    #
+    #     # train_model is used to train our network
+    #     train_model = policy(None, nsteps, sess)
+    #
+    # A = tf.placeholder(train_model.action.dtype, train_model.action.shape)
+    # ADV = tf.placeholder(tf.float32, (None,))
+    # R = tf.placeholder(tf.float32, (None,))
+    # LR = tf.placeholder(tf.float32, [])
+    #
+    # # Calculate the loss
+    # # Total loss = Policy gradient loss - entropy * entropy coefficient + Value coefficient * value loss
+    #
+    # # Policy loss
+    # neglogpac = train_model.pd.neglogp(A)
+    # # L = A(s,a) * -logpi(a|s)
+    # pg_loss = tf.reduce_mean(ADV * neglogpac)
+    #
+    # # Entropy is used to improve exploration by limiting the premature convergence to suboptimal policy.
+    # entropy = tf.reduce_mean(train_model.pd.entropy())
+    #
+    # # Value loss
+    # # vf_loss = losses.mean_squared_error(tf.squeeze(train_model.vf), R)
+    # vf_loss = losses.mean_squared_error(train_model.vf, R)
+    #
+    # loss = pg_loss - entropy * ent_coef + vf_loss * vf_coef
+    #
+    # # Update parameters using loss
+    # # 1. Get the model parameters
+    # params = find_trainable_variables("a2c_model")
+    #
+    # # 2. Calculate the gradients
+    # grads = tf.gradients(loss, params)
+    # if max_grad_norm is not None:
+    #     # Clip the gradients (normalize)
+    #     grads, grad_norm = tf.clip_by_global_norm(grads, max_grad_norm)
+    # grads = list(zip(grads, params))
+    # # zip aggregate each gradient with parameters associated
+    # # For instance zip(ABCD, xyza) => Ax, By, Cz, Da
+    #
+    # # 3. Make op for one policy and value update step of A2C
+    # trainer = tf.train.RMSPropOptimizer(learning_rate=LR, decay=alpha, epsilon=epsilon)
+    #
+    # _train = trainer.apply_gradients(grads)
+    #
+    # lr = Scheduler(v=lr, nvalues=total_timesteps, schedule=lrschedule)
+    #
+    #
+    # def train(obs, states, rewards, masks, actions, values):
+    #     # Here we calculate advantage A(s,a) = R + yV(s') - V(s)
+    #     # rewards = R + yV(s')
+    #     advs = rewards - values
+    #     for step in range(len(obs)):
+    #         cur_lr = lr.value()
+    #
+    #     td_map = {train_model.X: obs, A: actions, ADV: advs, R: rewards, LR: cur_lr}
+    #     if states is not None:
+    #         td_map[train_model.S] = states
+    #         td_map[train_model.M] = masks
+    #     policy_loss, value_loss, policy_entropy, _ = sess.run(
+    #         [pg_loss, vf_loss, entropy, _train],
+    #         td_map
+    #     )
+    #     return policy_loss, value_loss, policy_entropy
+    #########################OPENAI#################################
 
     # These placeholders mean exactly the same as in "Let's try it out" section above
     states_ph = tf.placeholder('float32', [None, ] + list(obs_shape))
@@ -213,47 +231,9 @@ if __name__ == '__main__':
     # compute policy entropy given logits_seq. Mind the "-" sign!
     entropy = -tf.reduce_sum(probs * logprobs, 1)
 
-
-    ### openai
-    A = tf.placeholder(train_model.action.dtype, train_model.action.shape)
-    ADV = tf.placeholder(tf.float32, [nbatch])
-    R = tf.placeholder(tf.float32, [nbatch])
-    LR = tf.placeholder(tf.float32, [])
-
-    # Calculate the loss
-    # Total loss = Policy gradient loss - entropy * entropy coefficient + Value coefficient * value loss
-
-    probs = tf.nn.softmax(logits)  # [n_envs, n_actions]
-    logprobs = tf.nn.log_softmax(logits)  # [n_envs, n_actions]
-
-    # Policy loss
-    # neglogpac = train_model.pd.neglogp(A)
-    neglogpac = -logprobs
-    # L = A(s,a) * -logpi(a|s)
-    pg_loss = tf.reduce_mean(ADV * neglogpac)
-
-
-    # Entropy
-    a0 = logits - tf.reduce_max(logits, axis=-1, keepdims=True)
-    ea0 = tf.exp(a0)
-    z0 = tf.reduce_sum(ea0, axis=-1, keepdims=True)
-    p0 = ea0 / z0
-    entropy = tf.reduce_mean(tf.reduce_sum(p0 * (tf.log(z0) - a0), axis=-1))
-
-    # Entropy is used to improve exploration by limiting the premature convergence to suboptimal policy.
-    entropy = tf.reduce_mean(entropy)
-
-    # Value loss
-    # vf_loss = losses.mean_squared_error(tf.squeeze(train_model.vf), R)
-    target_state_values = rewards_ph + gamma * next_state_values
-    vf_loss = tf.reduce_mean((state_values - tf.stop_gradient(target_state_values)) ** 2)
-
-    loss = pg_loss - entropy * 0.01 + vf_loss * 0.5
-    ###
-
     # assert entropy.shape.ndims == 1, "please compute pointwise entropy vector of shape [n_envs,] "
 
-    actor_loss = -tf.reduce_mean(logp_actions * tf.stop_gradient(advantage)) - 0.1 * tf.reduce_mean(entropy)
+    actor_loss = -tf.reduce_mean(logp_actions * tf.stop_gradient(advantage)) - 0.05 * tf.reduce_mean(entropy)
 
     # compute target state values using temporal difference formula. Use rewards_ph and next_step_values
     target_state_values = rewards_ph + gamma * next_state_values
@@ -262,34 +242,45 @@ if __name__ == '__main__':
 
     # train_step = tf.train.AdamOptimizer(1e-4).minimize(actor_loss + critic_loss)
 
-    optimizer = tf.train.AdamOptimizer(1e-4)
-    gradients, variables = zip(*optimizer.compute_gradients(-actor_loss - critic_loss))
-    gradients, _ = tf.clip_by_global_norm(gradients, 0.01)
-    train_step = optimizer.apply_gradients(zip(gradients, variables))
+    # optimizer = tf.train.AdamOptimizer(1e-4)
+    # gradients, variables = zip(*optimizer.compute_gradients(actor_loss + critic_loss))
+    # gradients, _ = tf.clip_by_global_norm(gradients, 0.5)
+    # train_step = optimizer.apply_gradients(zip(gradients, variables))
+
+    all_weights = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+    grads = tf.gradients(actor_loss + critic_loss, all_weights)
+    grads, grad_norm = tf.clip_by_global_norm(grads, 0.5)
+    grads = list(zip(grads, all_weights))
+    # zip aggregate each gradient with parameters associated
+    # For instance zip(ABCD, xyza) => Ax, By, Cz, Da
+
+    # 3. Make op for one policy and value update step of A2C
+    trainer = tf.train.RMSPropOptimizer(learning_rate=7e-4, decay=0.99, epsilon=1e-5)
+
+    train_step = trainer.apply_gradients(grads)
 
     sess.run(tf.global_variables_initializer())
 
     # Sanity checks to catch some errors. Specific to KungFuMaster in assignment's default setup.
-    l_act, l_crit, adv, ent = sess.run([actor_loss, critic_loss, advantage, entropy], feed_dict={
-        states_ph: batch_states,
-        actions_ph: batch_actions,
-        next_states_ph: batch_states,
-        rewards_ph: batch_rewards,
-        is_done_ph: batch_done,
-    })
-
-    # assert abs(l_act) < 100 and abs(l_crit) < 100, "losses seem abnormally large"
-    # assert 0 <= ent.mean() <= np.log(n_actions), "impossible entropy value, double-check the formula pls"
-    if ent.mean() < np.log(n_actions) / 2: print("Entropy is too low for untrained agent")
-    print("You just might be fine!")
+    # l_act, l_crit, adv, ent = sess.run([actor_loss, critic_loss, advantage, entropy], feed_dict={
+    #     states_ph: batch_states,
+    #     actions_ph: batch_actions,
+    #     next_states_ph: batch_states,
+    #     rewards_ph: batch_rewards,
+    #     is_done_ph: batch_done,
+    # })
+    #
+    # # assert abs(l_act) < 100 and abs(l_crit) < 100, "losses seem abnormally large"
+    # # assert 0 <= ent.mean() <= np.log(n_actions), "impossible entropy value, double-check the formula pls"
+    # if ent.mean() < np.log(n_actions) / 2: print("Entropy is too low for untrained agent")
+    # print("You just might be fine!")
 
     from tqdm import trange
     from pandas import DataFrame
 
     ewma = lambda x, span=100: DataFrame({'x': np.asarray(x)}).x.ewm(span=span).mean().values
 
-    env_batch = EnvBatch(20)
-    batch_states = env_batch.reset()
+    batch_states = env.reset()
 
     rewards_history = []
     entropy_history = []
@@ -298,11 +289,14 @@ if __name__ == '__main__':
 
     for i in trange(100_000_000):
         batch_actions = agent.sample_actions(agent.step(batch_states))
-        batch_next_states, batch_rewards, batch_done, _ = env_batch.step(batch_actions)
+        batch_next_states, batch_rewards, batch_done, _ = env.step(batch_actions)
 
-        inverted_actions = [env_batch.envs[0].invert_action(a) for a in batch_actions]
-        inverted_states = [env_batch.envs[0].invert_state(s) for s in batch_states]
-        inverted_next_states = [env_batch.envs[0].invert_state(s) for s in batch_next_states]
+        inverted_states = env.invert_states(batch_states)
+        inverted_actions = env.invert_actions(batch_actions)
+        inverted_next_states = env.invert_states(batch_next_states)
+        # inverted_actions = [env_batch.envs[0].invert_action(a) for a in batch_actions]
+        # inverted_states = [env_batch.envs[0].invert_state(s) for s in batch_states]
+        # inverted_next_states = [env_batch.envs[0].invert_state(s) for s in batch_next_states]
 
         batch_states = np.vstack((batch_states, inverted_states))
         batch_next_states_feed = np.vstack((batch_next_states, inverted_next_states))
@@ -324,9 +318,12 @@ if __name__ == '__main__':
         actor_loss_history.append(np.mean(a_loss))
         critic_loss_history.append(np.mean(c_loss))
 
+        if i % 50 == 0:
+            print(np.mean(ent_t))
+
         if i % 10000 == 0:
             if i % 10000 == 0:
-                mean = np.mean(evaluate(agent, env_batch, n_games=1))
+                mean = np.mean(evaluate(agent, env, n_games=1))
                 agent.serialize()
                 rewards_history.append(mean)
                 # if rewards_history[-1] >= 50:

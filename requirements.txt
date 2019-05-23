@@ -8,3 +8,4 @@ gym==0.12.1
 tqdm
 pandas
 pytest
+-e git://github.com/openai/baselines.git#egg=openai_baselines

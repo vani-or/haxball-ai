@@ -17,6 +17,8 @@ from baselines.common.vec_env.test_vec_env import SimpleEnv
 from baselines.run import build_env
 
 from hx_controller.haxball_gym import Haxball
+from hx_controller.haxball_vecenv import HaxballVecEnv, HaxballSubProcVecEnv
+from hx_controller.openai_model_torneo import A2CModel
 from simulator import create_start_conditions
 import numpy as np
 from collections import deque
@@ -33,7 +35,7 @@ if __name__ == '__main__':
     try:
         res = gym.spec('haxball-v0')
     except:
-        gym.register(id='haxball-v0', entry_point='hx_controller.haxball_gym:Haxball', kwargs=dict(gameplay=None, max_ticks=300))
+        gym.register(id='haxball-v0', entry_point='hx_controller.haxball_gym:Haxball', kwargs=dict(gameplay=None, max_ticks=2400))
 
     # args_namespace = Namespace(
     #     alg='a2c',
@@ -89,23 +91,25 @@ if __name__ == '__main__':
 
     nsteps = 1
     gamma = 0.99
-    nenvs = 50
-    total_timesteps = int(80e6)
+    nenvs = 100
+    total_timesteps = int(15e6)
     log_interval = 100
     load_path = None
     load_path = 'ciao.h5'
+    play = bool(int(os.getenv('PLAY', False)))
     play = False
-    # play = True
     if play:
         nenvs = 2
 
-    env = make_vec_env(env_id='haxball-v0', env_type=None, num_env=nenvs, seed=None)
+    # env = make_vec_env(env_id='haxball-v0', env_type=None, num_env=nenvs, seed=None)
+    # env = HaxballVecEnv(num_fields=nenvs, max_ticks=2400*2)
+    env = HaxballSubProcVecEnv(num_fields=nenvs, max_ticks=int(60*3*(1/0.1)))
     # env = make_vec_env(env_id='PongNoFrameskip-v4', env_type=None, num_env=nenvs, seed=0)
     # policy = build_policy(env=env, policy_network='lstm')#, num_layers=4, num_hidden=128)
-    policy = build_policy(env=env, policy_network='mlp', num_layers=4, num_hidden=200)
+    policy = build_policy(env=env, policy_network='mlp', num_layers=4, num_hidden=256)
     # policy2 = build_policy(env=env2, policy_network='mlp')
 
-    model = Model(policy, env=env, nsteps=nsteps, ent_coef=0.005)# 0.005) #, vf_coef=0.0)
+    model = A2CModel(policy, env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps)# 0.005) #, vf_coef=0.0)
     if load_path is not None and os.path.exists(load_path):
         model.load(load_path)
 
@@ -146,13 +150,24 @@ if __name__ == '__main__':
     for update in range(1, total_timesteps // nbatch + 1):
         # Get mini batch of experiences
         obs, states, rewards, masks, actions, values, epinfos = runner.run()
+
+        # invert
+        inv_obs = env.invert_states(obs)
+        obs = np.vstack((obs, inv_obs))
+        rewards = np.hstack((rewards, rewards))
+        masks = np.hstack((masks, masks))
+        inv_actions = env.invert_actions(actions)
+        actions = np.hstack((actions, inv_actions))
+        values = np.hstack((values, values))
+
         epinfobuf.extend(epinfos)
 
+        # policy_loss, value_loss, policy_entropy = model.train(inv_obs, states, rewards, masks, inv_actions, values)
         policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, values)
         nseconds = time.time() - tstart
 
-        last_rewards += list(rewards)
-        last_rewards = last_rewards[-20000:]
+        # last_rewards += list(rewards)
+        # last_rewards = last_rewards[-20000:]
         # Calculate the fps (frame per second)
         fps = int((update * nbatch) / nseconds)
         if update % log_interval == 0 or update == 1:
@@ -161,7 +176,7 @@ if __name__ == '__main__':
             ev = explained_variance(values, rewards)
             logger.record_tabular("nupdates", update)
             logger.record_tabular("total_timesteps", update * nbatch)
-            logger.record_tabular('rewards', np.mean(last_rewards))
+            logger.record_tabular('rewards', np.mean(rewards))
             logger.record_tabular('values', np.mean(values))
             logger.record_tabular("fps", fps)
             logger.record_tabular("policy_entropy", float(policy_entropy))
@@ -170,5 +185,5 @@ if __name__ == '__main__':
             logger.record_tabular("eprewmean", safemean([epinfo['r'] for epinfo in epinfobuf]))
             logger.record_tabular("eplenmean", safemean([epinfo['l'] for epinfo in epinfobuf]))
             logger.dump_tabular()
-        if update % 1000 == 0:
+        if update % 500 == 0:
             model.save(load_path)
