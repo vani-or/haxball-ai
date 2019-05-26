@@ -1,3 +1,7 @@
+import json
+import multiprocessing
+import os
+import random
 from multiprocessing.dummy import Pool
 
 from baselines.a2c.a2c import Model
@@ -40,6 +44,9 @@ class A2CModel(object):
     def __init__(self, policy, env, nsteps, model_name="a2c_model",
             ent_coef=0.01, vf_coef=0.5, max_grad_norm=0.5, lr=7e-4,
             alpha=0.99, epsilon=1e-5, total_timesteps=int(80e6), lrschedule='linear'):
+
+        self.model_name = model_name
+        self.lr = lr
 
         sess = tf_util.get_session()
         nenvs = env.num_envs
@@ -118,13 +125,33 @@ class A2CModel(object):
         self.step = step_model.step
         self.value = step_model.value
         self.initial_state = step_model.initial_state
-        self.save = functools.partial(tf_util.save_variables, sess=sess)
-        self.load = functools.partial(tf_util.load_variables, sess=sess)
+        self.save = functools.partial(tf_util.save_variables, sess=sess, variables=params)
+        self.load = functools.partial(tf_util.load_variables, sess=sess, variables=params)
         tf.global_variables_initializer().run(session=sess)
+
+    def add_noise(self, mean=0.0, stddev=0.01):
+        sess = tf_util.get_session()
+        params = find_trainable_variables(self.model_name)
+        for param in params:
+            variables_shape = tf.shape(param)
+            noise = tf.random_normal(
+                variables_shape,
+                mean=mean,
+                stddev=stddev,
+                dtype=tf.float32,
+            )
+            sess.run(tf.assign_add(param, noise))
+
+    def load_variables_from_another_model(self, another_model_name):
+        sess = tf_util.get_session()
+        params = find_trainable_variables(self.model_name)
+        another_params = find_trainable_variables(another_model_name)
+        for pair in zip(params, another_params):
+            sess.run(tf.assign(pair[0], pair[1]))
 
 
 class MultimodelRunner(AbstractEnvRunner):
-    def __init__(self, env, models, nsteps=5, gamma=0.99):
+    def __init__(self, env, models, nsteps=5, gamma=0.99, ratings=None):
         super().__init__(env=env, model=models[0], nsteps=nsteps)
         self.models = models
         self.m = len(models)
@@ -145,16 +172,23 @@ class MultimodelRunner(AbstractEnvRunner):
         #     l += 1
 
         self.models_indexes = [[] for _ in range(self.m)]
+        self.players_indexs = {}
         l = 0
         for k in range(self.m ** 2):
             i = k // self.m
             j = k % self.m
             if i == j:
                 continue
+            self.players_indexs[l] = (i, j)
             el = l * 2
             self.models_indexes[i].append(el)
             self.models_indexes[j].append(el + 1)
             l += 1
+
+        if ratings is None:
+            self.ratings = [1200] * self.m
+        else:
+            self.ratings = ratings
 
     def model_step(self, args):
         model, obs, states, dones = args
@@ -163,6 +197,10 @@ class MultimodelRunner(AbstractEnvRunner):
     def model_train(self, args):
         model, obs, states, rewards, masks, actions, values = args
         return model.train(obs, states, rewards, masks, actions, values)
+
+    def model_value(self, args):
+        model, obs, states, dones = args
+        return model.value(obs, S=states, M=dones).tolist()
 
     def do_model_train(self, obs, states, rewards, masks, actions, values):
         obs_chunks = []
@@ -200,6 +238,20 @@ class MultimodelRunner(AbstractEnvRunner):
         policy_loss, value_loss, policy_entropy = zip(*train_results)
         return policy_loss, value_loss, policy_entropy
 
+    def process_winners(self, result_scores):
+        for i, score in enumerate(result_scores):
+            if score is not None:
+                red_model_i, blue_model_i = self.players_indexs[i]
+                exp_score = self.expected_score(self.ratings[red_model_i], self.ratings[blue_model_i])
+                new_rating_red = self.ratings[red_model_i] + 32 * (score - exp_score)
+                new_rating_blue = self.ratings[blue_model_i] + 32 * (-score + exp_score)
+                # TODO: non è coretto, le partite sono sincrone, non devo aggiornare gli ELO sequenzialmente
+                self.ratings[red_model_i] = new_rating_red
+                self.ratings[blue_model_i] = new_rating_blue
+
+    def expected_score(self, player_rating: int, opponent_rating: int) -> float:
+        return 1 / (1 + 10 ** ((opponent_rating - player_rating) / 400))
+
     def run(self):
         # We initialize the lists that will contain the mb of experiences
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones = [], [], [], [], []
@@ -211,10 +263,10 @@ class MultimodelRunner(AbstractEnvRunner):
             obs_chunks = []
             dones_chunks = []
             for i in range(self.m):
-                obs = self.obs[self.models_indexes[i]]
-                dones = np.array(self.dones)[self.models_indexes[i]]
-                obs_chunks.append(obs)
-                dones_chunks.append(dones)
+                obs_tmp = self.obs[self.models_indexes[i]]
+                dones_tmp = np.array(self.dones)[self.models_indexes[i]]
+                obs_chunks.append(obs_tmp)
+                dones_chunks.append(dones_tmp)
 
             models_results = self.tp.map(self.model_step, zip(self.models, obs_chunks, [None]*self.m, dones_chunks))
             actions, values, states, _ = zip(*models_results)
@@ -228,15 +280,17 @@ class MultimodelRunner(AbstractEnvRunner):
 
             # Append the experiences
             mb_obs.append(np.copy(self.obs))
-            mb_actions.append(actions)
-            mb_values.append(values)
+            mb_actions.append(actions_to_send)
+            mb_values.append(values_to_send)
             mb_dones.append(self.dones)
 
             # Take actions in env and look the results
             obs, rewards, dones, infos = self.env.step(actions_to_send)
-            for info in infos:
-                maybeepinfo = info.get('episode')
-                if maybeepinfo: epinfos.append(maybeepinfo)
+            result_scores = [info['score'] for info in infos[::2]]
+            self.process_winners(result_scores)
+            # for info in infos:
+            #     maybeepinfo = info.get('episode')
+            #     if maybeepinfo: epinfos.append(maybeepinfo)
             self.states = states
             self.dones = dones
             self.obs = obs
@@ -254,7 +308,22 @@ class MultimodelRunner(AbstractEnvRunner):
 
         if self.gamma > 0.0:
             # Discount/bootstrap off value fn
-            last_values = self.model.value(self.obs, S=self.states, M=self.dones).tolist()
+
+            obs_chunks = []
+            dones_chunks = []
+            for i in range(self.m):
+                obs_tmp = self.obs[self.models_indexes[i]]
+                dones_tmp = np.array(self.dones)[self.models_indexes[i]]
+                obs_chunks.append(obs_tmp)
+                dones_chunks.append(dones_tmp)
+            last_values = self.tp.map(self.model_value, zip(self.models, obs_chunks, [None]*self.m, dones_chunks))
+            # actions, values, states, _ = zip(*models_results)
+            last_values_to_send = np.zeros(shape=(2 * self.m * (self.m - 1)))
+            for i in range(self.m):
+                last_values_to_send[self.models_indexes[i]] = last_values[i]
+            last_values = last_values_to_send.tolist()
+            # last_values = self.model.value(self.obs, S=self.states, M=self.dones).tolist()
+
             for n, (rewards, dones, value) in enumerate(zip(mb_rewards, mb_dones, last_values)):
                 rewards = rewards.tolist()
                 dones = dones.tolist()
@@ -275,14 +344,14 @@ class MultimodelRunner(AbstractEnvRunner):
 
 if __name__ == '__main__':
     # Round-robin
-    num_players = 5
+    num_players = 4 if multiprocessing.cpu_count() <= 4 else 20
     game_max_duration = 3  # minuti
     gamma = 0.99
     nsteps = 1
     log_interval = 100
     load_path = None
     load_path = 'ciao.h5'
-    total_timesteps = int(15e6)
+    total_timesteps = int(15e7)
 
     # la gliglia per torneo
     num_fields = num_players * (num_players - 1)
@@ -293,13 +362,36 @@ if __name__ == '__main__':
 
     models = []
     runners = []
+    ratings = [1200] * num_players
     for i in range(num_players):
-        m = A2CModel(policy, env=env, model_name='a2c_model' if i == 0 else "p"+str(i), nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps)
+        fn = 'models/' + str(i) + '.params.json'
+        if os.path.exists(fn):
+            with open(fn, 'r') as fp:
+                params = json.load(fp)
+        else:
+            params = {
+                'lr': 7e-4,
+                'ent_coef': 0.05,
+            }
+            if i < 2:
+                params['lr'] = 0.0
+            with open(fn, 'w') as fp:
+                json.dump(params, fp)
+
+        m = A2CModel(policy, env=env, model_name='a2c_model' if i == 0 else "p"+str(i), nsteps=nsteps, total_timesteps=total_timesteps, **params)
         # runner = Runner(env, m, nsteps=nsteps, gamma=gamma)
         # runners.append(runner)
+        fn = 'models/' + str(i) + '.h5'
+        if os.path.exists(fn):
+            m.load(fn)
+        fn = 'models/' + str(i) + '.rating.txt'
+        if os.path.exists(fn):
+            with open(fn, 'r') as fp:
+                rating = float(fp.read().encode('utf-8'))
+                ratings[i] = rating
         models.append(m)
 
-    runner = MultimodelRunner(env, models, nsteps=nsteps, gamma=gamma)
+    runner = MultimodelRunner(env, models, nsteps=nsteps, gamma=gamma, ratings=ratings)
     # Calculate the batch_size
     nbatch = num_fields * nsteps
     tstart = time.time()
@@ -329,8 +421,27 @@ if __name__ == '__main__':
             logger.record_tabular("policy_entropy", np.mean(policy_entropy))
             logger.record_tabular("value_loss", np.mean(value_loss))
             logger.record_tabular("explained_variance", float(ev))
+
+            positions = list(map(int, reversed(np.argsort(runner.ratings))))
+            logger.record_tabular("ELO top 1: %s" % positions[0], str(round(runner.ratings[positions[0]], 1)))
+            logger.record_tabular("ELO top 2: %s" % positions[1], str(round(runner.ratings[positions[1]], 1)))
+            logger.record_tabular("ELO top 3: %s" % positions[2], str(round(runner.ratings[positions[2]], 1)))
+            logger.record_tabular("ELO top 4: %s" % positions[3], str(round(runner.ratings[positions[3]], 1)))
+            logger.record_tabular("ELO worst: %s" % positions[-1], str(round(runner.ratings[positions[-1]], 1)))
             # logger.record_tabular("eprewmean", safemean([epinfo['r'] for epinfo in epinfobuf]))
             # logger.record_tabular("eplenmean", safemean([epinfo['l'] for epinfo in epinfobuf]))
             logger.dump_tabular()
-        if update % 500 == 0:
-            models[0].save(load_path)
+
+            if update % 500 == 0 and update > 0:
+                for i, model in enumerate(models):
+                    model.save('models/' + str(i) + '.h5')
+                    with open('models/' + str(i) + '.rating.txt', 'w') as fp:
+                        fp.write(str(runner.ratings[i]))
+
+            if update % 2000 == 0 and update > 0:
+                sorted_ratings = list(reversed(sorted(runner.ratings)))
+                if sorted_ratings[0] - sorted_ratings[-1] >= 200:
+                    print('Modello %s sarà sostituito con %s' % (positions[-1], positions[0]))
+                    models[positions[-1]].load_variables_from_another_model(models[positions[0]].model_name)
+                    # models[positions[-1]].add_noise(0.0, stddev=0.001)
+                    runner.ratings[positions[-1]] = runner.ratings[positions[0]]

@@ -96,20 +96,26 @@ if __name__ == '__main__':
     log_interval = 100
     load_path = None
     load_path = 'ciao.h5'
+    # model_i = 14
+    model_i = ''
+    # load_path = 'models/%s.h5' % model_i
     play = bool(int(os.getenv('PLAY', False)))
-    play = False
+    # play = False
     if play:
         nenvs = 2
 
     # env = make_vec_env(env_id='haxball-v0', env_type=None, num_env=nenvs, seed=None)
     # env = HaxballVecEnv(num_fields=nenvs, max_ticks=2400*2)
-    env = HaxballSubProcVecEnv(num_fields=nenvs, max_ticks=int(60*3*(1/0.1)))
+    max_ticks = int(60*3*(1/0.1))
+    if play:
+        max_ticks = int(30*1*(1/0.1))
+    env = HaxballSubProcVecEnv(num_fields=nenvs, max_ticks=max_ticks)
     # env = make_vec_env(env_id='PongNoFrameskip-v4', env_type=None, num_env=nenvs, seed=0)
     # policy = build_policy(env=env, policy_network='lstm')#, num_layers=4, num_hidden=128)
     policy = build_policy(env=env, policy_network='mlp', num_layers=4, num_hidden=256)
     # policy2 = build_policy(env=env2, policy_network='mlp')
 
-    model = A2CModel(policy, env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps)# 0.005) #, vf_coef=0.0)
+    model = A2CModel(policy, model_name='p' + str(model_i) if isinstance(model_i, int) and model_i > 0 else 'a2c_model', env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps)# 0.005) #, vf_coef=0.0)
     if load_path is not None and os.path.exists(load_path):
         model.load(load_path)
 
@@ -121,6 +127,7 @@ if __name__ == '__main__':
         dones = np.zeros((1,))
 
         episode_rew = 0
+        episode_rew2 = 0
         while True:
             if state is not None:
                 actions, _, state, _ = model.step(obs, S=state, M=dones)
@@ -129,11 +136,13 @@ if __name__ == '__main__':
 
             obs, rew, done, _ = env.step(actions)
             episode_rew += rew[0] if isinstance(env, VecEnv) else rew
+            episode_rew2 += rew[1] if isinstance(env, VecEnv) else rew
             env.render()
             done = done.any() if isinstance(done, np.ndarray) else done
             if done:
-                print('episode_rew={}'.format(episode_rew))
+                print('episode_rew={}, \t{}'.format(episode_rew, episode_rew2))
                 episode_rew = 0
+                episode_rew2 = 0
                 obs = env.reset()
 
     # Instantiate the runner object

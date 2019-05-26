@@ -136,6 +136,7 @@ class Haxball(Env):
         opponent_vel_x = self.gameplay.wa.K[opponent_read_index].M.x
         opponent_vel_y = self.gameplay.wa.K[opponent_read_index].M.y
 
+        deve_cominciare = False
         if red_team:
             ball_pos_x *= -1
             ball_pos_y *= -1
@@ -150,8 +151,10 @@ class Haxball(Env):
             opponent_vel_x *= -1
             opponent_vel_y *= -1
             campo_bloccato = (self.gameplay.Jd.o == 'Blue') and self.gameplay.zb == 0
+            deve_cominciare = (self.gameplay.Jd.o == 'Red') and self.gameplay.zb == 0
         else:
             campo_bloccato = (self.gameplay.Jd.o == 'Red') and self.gameplay.zb == 0
+            deve_cominciare = (self.gameplay.Jd.o == 'Blue') and self.gameplay.zb == 0
 
         # # # # # REWARD # # # # #
         reward = 0
@@ -160,7 +163,7 @@ class Haxball(Env):
 
         # La distanza dalla palla alla porta dell'avversario (penalità)
         # distanza_palla_porta_avversario = math.sqrt((ball_pos_x + self.gameplay.U.Ed) ** 2 + ball_pos_y ** 2)
-        # reward -= 0.01 * distanza_palla_porta_avversario
+        # reward -= distanza_palla_porta_avversario
         # reward -= 0.0001*((ball_pos_x + self.gameplay.U.Ed) ** 2 + ball_pos_y ** 2)
 
         # La distanza dalla palla alla porta del giocatore (premio piccolo)
@@ -181,13 +184,15 @@ class Haxball(Env):
         # reward += player_vel_x ** 2 + player_vel_y ** 2
 
         # Velocità della palla verso la porta dell'avversario (però, va pensato bene, forse si deve contare solo i casi quando è il giocatore che tocca la palla, ma non l'avversario)
-        # if abs(ball_vel_x) > 0.01 or abs(ball_vel_y) > 0.01:
-        #     vett_palla_porta = (self.gameplay.U.Ed + ball_pos_x, ball_pos_y)
-        #     ps = self.prodotto_scalare(vett_palla_porta, (-ball_vel_x, ball_vel_y))
-        #     if ps < 0:
-        #         ps /= 2
-        #     reward += 100 * ps
-        # velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
+        if abs(ball_vel_x) > 0.01 or abs(ball_vel_y) > 0.01:
+            vett_palla_porta = (self.gameplay.U.Ed + ball_pos_x, ball_pos_y)
+            ps = self.prodotto_scalare(vett_palla_porta, (-ball_vel_x, ball_vel_y))
+            velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
+            # if ps < 0:
+            #     ps /= 2
+            reward += 50 * ps * velocita_palla
+            # print(50 * ps * velocita_palla)
+
         # reward += 50 * velocita_palla
 
         # Velocità troppo bassa (penalità)
@@ -214,19 +219,24 @@ class Haxball(Env):
 
         done = False
         goal_reward = 0
+        score = None
         if self.gameplay.red_scored:
             print('gol from red')
-            # if red_team:
-            #     goal_reward = 20000
-            # else:
-            #     goal_reward = -0
+            if red_team:
+                goal_reward = +200_000
+                score = 1
+            else:
+                goal_reward = -2_000
+                score = 0
             done = True
         elif self.gameplay.blue_scored:
             print('gol from blue')
-            # if red_team:
-            #     goal_reward = -0
-            # else:
-            #     goal_reward = 20000
+            if red_team:
+                goal_reward = -2_000
+                score = 0
+            else:
+                goal_reward = +200_000
+                score = 1
             done = True
 
         reward += goal_reward
@@ -245,18 +255,29 @@ class Haxball(Env):
             ball_vel_x,
             ball_vel_y,
             distanza_alla_palla,
-            # velocita_palla,
+            # self.max_ticks - self._ticks,
             int(campo_bloccato)
         ]
 
         if not done:
             if self._ticks >= self.max_ticks:
                 done = True
+                score = 0.5
+                # reward -= 20_000
+            elif self._ticks >= self.max_ticks // 2:
+                if deve_cominciare:
+                    # reward -= 20_000
+                    score = 0
+                    print('lost by doing nothing')
+                    done = True
+                elif campo_bloccato:
+                    score = 1
+                    done = True
 
         if state_only:
             return state
 
-        return state, reward/1000, done, {}
+        return state, reward/1000, done, {'score': score}
 
     def step(self, action):
         # Invio degli input
