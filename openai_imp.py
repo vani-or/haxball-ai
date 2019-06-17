@@ -1,4 +1,5 @@
 import os
+import pickle
 import sys
 import time
 from argparse import Namespace
@@ -89,14 +90,14 @@ if __name__ == '__main__':
         set_global_seeds(seed)
         return DummyVecEnv([make_thunk(i + start_index) for i in range(num_env)])
 
-    nsteps = 1
+    nsteps = 5
     gamma = 0.99
-    nenvs = 100
-    total_timesteps = int(15e6)
+    nenvs = 10
+    total_timesteps = int(10e7)
     log_interval = 100
     load_path = None
     load_path = 'ciao.h5'
-    # model_i = 14
+    # model_i = 8
     model_i = ''
     # load_path = 'models/%s.h5' % model_i
     play = bool(int(os.getenv('PLAY', False)))
@@ -106,16 +107,16 @@ if __name__ == '__main__':
 
     # env = make_vec_env(env_id='haxball-v0', env_type=None, num_env=nenvs, seed=None)
     # env = HaxballVecEnv(num_fields=nenvs, max_ticks=2400*2)
-    max_ticks = int(60*3*(1/0.1))
+    max_ticks = int(60*2*(1/0.1))
     if play:
-        max_ticks = int(30*1*(1/0.1))
+        max_ticks = int(60*1*(1/0.1))
     env = HaxballSubProcVecEnv(num_fields=nenvs, max_ticks=max_ticks)
     # env = make_vec_env(env_id='PongNoFrameskip-v4', env_type=None, num_env=nenvs, seed=0)
     # policy = build_policy(env=env, policy_network='lstm')#, num_layers=4, num_hidden=128)
     policy = build_policy(env=env, policy_network='mlp', num_layers=4, num_hidden=256)
     # policy2 = build_policy(env=env2, policy_network='mlp')
 
-    model = A2CModel(policy, model_name='p' + str(model_i) if isinstance(model_i, int) and model_i > 0 else 'a2c_model', env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps)# 0.005) #, vf_coef=0.0)
+    model = A2CModel(policy, model_name='p' + str(model_i) if isinstance(model_i, int) and model_i > 0 else 'a2c_model', env=env, nsteps=nsteps, ent_coef=0.1, total_timesteps=total_timesteps, lr=7e-4)# 0.005) #, vf_coef=0.0)
     if load_path is not None and os.path.exists(load_path):
         model.load(load_path)
 
@@ -156,6 +157,9 @@ if __name__ == '__main__':
     tstart = time.time()
     last_rewards = []
 
+    graph_names = ('policy_entropy', 'value_loss', 'policy_loss', 'values_mean', 'rewards_mean', 'explained_variance')
+    graph_data = {k: [] for k in graph_names}
+
     for update in range(1, total_timesteps // nbatch + 1):
         # Get mini batch of experiences
         obs, states, rewards, masks, actions, values, epinfos = runner.run()
@@ -194,5 +198,18 @@ if __name__ == '__main__':
             logger.record_tabular("eprewmean", safemean([epinfo['r'] for epinfo in epinfobuf]))
             logger.record_tabular("eplenmean", safemean([epinfo['l'] for epinfo in epinfobuf]))
             logger.dump_tabular()
+
+            # I dati per i grafici
+            graph_data['policy_entropy'].append(float(policy_entropy))
+            graph_data['value_loss'].append(float(value_loss))
+            graph_data['policy_loss'].append(float(policy_loss))
+            graph_data['values_mean'].append(np.mean(values))
+            graph_data['rewards_mean'].append(np.mean(rewards))
+            graph_data['explained_variance'].append(float(ev))
+            with open(load_path + '.graph', 'wb') as fp:
+                pickle.dump(graph_data, fp)
+
+            # if np.mean(rewards) > 0:
+            #     input('rewards!!!')
         if update % 500 == 0:
             model.save(load_path)

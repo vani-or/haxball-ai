@@ -185,6 +185,12 @@ class MultimodelRunner(AbstractEnvRunner):
             self.models_indexes[j].append(el + 1)
             l += 1
 
+        l = 2 * (self.m - 1)
+        self.mb_models_indexes = np.zeros(shape=(self.m, self.nsteps * l), dtype=np.int16)
+        for i in range(self.m):
+            for nstep in range(self.nsteps):
+                self.mb_models_indexes[i, nstep*l:(nstep+1)*l] = nstep * 2 * self.m * (self.m - 1) + np.array(self.models_indexes[i])
+
         if ratings is None:
             self.ratings = [1200] * self.m
         else:
@@ -202,39 +208,45 @@ class MultimodelRunner(AbstractEnvRunner):
         model, obs, states, dones = args
         return model.value(obs, S=states, M=dones).tolist()
 
-    def do_model_train(self, obs, states, rewards, masks, actions, values):
-        obs_chunks = []
-        states_chunks = []
-        rewards_chunks = []
-        masks_chunks = []
-        actions_chunks = []
-        values_chunks = []
-        for i in range(self.m):
-            obs_i = obs[self.models_indexes[i]]
+    def do_model_train(self, obs, states, rewards, masks, actions, values, test):
+        # obs_chunks = []
+        # states_chunks = []
+        # rewards_chunks = []
+        # masks_chunks = []
+        # actions_chunks = []
+        # values_chunks = []
+        train_results = []
+        for i, model in enumerate(self.models):
+            indexes = self.mb_models_indexes[i,:]
+
+            obs_i = obs[indexes]
             inv_obs = self.env.invert_states(obs_i)
             obs_i = np.vstack((obs_i, inv_obs))
-            obs_chunks.append(obs_i)
+            # obs_chunks.append(obs_i)
 
-            states_chunks.append(None)
+            # states_chunks.append(None)
 
-            rewards_i = rewards[self.models_indexes[i]]
+            rewards_i = rewards[indexes]
             rewards_i = np.hstack((rewards_i, rewards_i))
-            rewards_chunks.append(rewards_i)
+            # rewards_chunks.append(rewards_i)
 
-            masks_i = masks[self.models_indexes[i]]
+            masks_i = masks[indexes]
             masks_i = np.hstack((masks_i, masks_i))
-            masks_chunks.append(masks_i)
+            # masks_chunks.append(masks_i)
 
-            actions_i = actions[self.models_indexes[i]]
+            actions_i = actions[indexes]
             inv_actions = env.invert_actions(actions_i)
             actions_i = np.hstack((actions_i, inv_actions))
-            actions_chunks.append(actions_i)
+            # actions_chunks.append(actions_i)
 
-            values_i = values[self.models_indexes[i]]
+            values_i = values[indexes]
             values_i = np.hstack((values_i, values_i))
-            values_chunks.append(values_i)
+            # values_chunks.append(values_i)
 
-        train_results = self.tp.map(self.model_train, zip(self.models, obs_chunks, states_chunks, rewards_chunks, masks_chunks, actions_chunks, values_chunks))
+            train_results_tmp = model.train(obs_i, None, rewards_i, masks_i, actions_i, values_i)
+            # train_results_tmp = self.tp.map(self.model_train, zip(self.models, obs_chunks, states_chunks, rewards_chunks, masks_chunks, actions_chunks, values_chunks))
+            train_results.append(train_results_tmp)
+
         policy_loss, value_loss, policy_entropy = zip(*train_results)
         return policy_loss, value_loss, policy_entropy
 
@@ -255,6 +267,7 @@ class MultimodelRunner(AbstractEnvRunner):
     def run(self):
         # We initialize the lists that will contain the mb of experiences
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones = [], [], [], [], []
+        # mb_test = []
         mb_states = self.states
         epinfos = []
         for n in range(self.nsteps):
@@ -262,13 +275,19 @@ class MultimodelRunner(AbstractEnvRunner):
             # We already have self.obs because Runner superclass run self.obs[:] = env.reset() on init
             obs_chunks = []
             dones_chunks = []
+            # l = 2 * self.m * (self.m - 1)
+            # mb_test.append(list(range(n * l, (n + 1) * l)))
             for i in range(self.m):
                 obs_tmp = self.obs[self.models_indexes[i]]
                 dones_tmp = np.array(self.dones)[self.models_indexes[i]]
                 obs_chunks.append(obs_tmp)
                 dones_chunks.append(dones_tmp)
 
-            models_results = self.tp.map(self.model_step, zip(self.models, obs_chunks, [None]*self.m, dones_chunks))
+            models_results = []
+            for i, model in enumerate(self.models):
+                res = model.step(obs_chunks[i], S=[None], M=dones_chunks[i])
+                models_results.append(res)
+            # models_results = self.tp.map(self.model_step, zip(self.models, obs_chunks, [None]*self.m, dones_chunks))
             actions, values, states, _ = zip(*models_results)
 
             actions_to_send = np.zeros(shape=(2 * self.m * (self.m - 1)))
@@ -299,8 +318,10 @@ class MultimodelRunner(AbstractEnvRunner):
 
         # Batch of steps to batch of rollouts
         mb_obs = np.asarray(mb_obs, dtype=self.ob_dtype).swapaxes(1, 0).reshape(self.batch_ob_shape)
+        # mb_obs = np.concatenate(mb_obs)  # TODO: ho cambiato io
         mb_rewards = np.asarray(mb_rewards, dtype=np.float32).swapaxes(1, 0)
         mb_actions = np.asarray(mb_actions, dtype=self.model.train_model.action.dtype.name).swapaxes(1, 0)
+        # mb_test = np.asarray(mb_test, dtype=self.model.train_model.action.dtype.name).swapaxes(1, 0)
         mb_values = np.asarray(mb_values, dtype=np.float32).swapaxes(1, 0)
         mb_dones = np.asarray(mb_dones, dtype=np.bool).swapaxes(1, 0)
         mb_masks = mb_dones[:, :-1]
@@ -309,14 +330,17 @@ class MultimodelRunner(AbstractEnvRunner):
         if self.gamma > 0.0:
             # Discount/bootstrap off value fn
 
-            obs_chunks = []
-            dones_chunks = []
-            for i in range(self.m):
+            # obs_chunks = []
+            # dones_chunks = []
+            last_values = []
+            for i, model in enumerate(self.models):
                 obs_tmp = self.obs[self.models_indexes[i]]
                 dones_tmp = np.array(self.dones)[self.models_indexes[i]]
-                obs_chunks.append(obs_tmp)
-                dones_chunks.append(dones_tmp)
-            last_values = self.tp.map(self.model_value, zip(self.models, obs_chunks, [None]*self.m, dones_chunks))
+                # obs_chunks.append(obs_tmp)
+                # dones_chunks.append(dones_tmp)
+                last_values_tmp = model.value(obs_tmp, S=[None], M=dones_tmp).tolist()
+                last_values.append(last_values_tmp)
+            # last_values = self.tp.map(self.model_value, zip(self.models, obs_chunks, [None]*self.m, dones_chunks))
             # actions, values, states, _ = zip(*models_results)
             last_values_to_send = np.zeros(shape=(2 * self.m * (self.m - 1)))
             for i in range(self.m):
@@ -335,23 +359,26 @@ class MultimodelRunner(AbstractEnvRunner):
                 mb_rewards[n] = rewards
 
         mb_actions = mb_actions.reshape(self.batch_action_shape)
+        # mb_actions = mb_actions.T.flatten()  # TODO: ho cambiato io
+        # mb_test = mb_test.T.flatten()  # TODO: ho cambiato io
 
         mb_rewards = mb_rewards.flatten()
+        # mb_rewards = mb_rewards.T.flatten()  # TODO: ho cambiato io
         mb_values = mb_values.flatten()
         mb_masks = mb_masks.flatten()
-        return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values, epinfos
+        return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values, epinfos, mb_test
 
 
 if __name__ == '__main__':
     # Round-robin
-    num_players = 4 if multiprocessing.cpu_count() <= 4 else 20
-    game_max_duration = 3  # minuti
+    num_players = 4 if multiprocessing.cpu_count() <= 4 else 22
+    game_max_duration = 2  # minuti
     gamma = 0.99
     nsteps = 1
     log_interval = 100
     load_path = None
     load_path = 'ciao.h5'
-    total_timesteps = int(15e7)
+    total_timesteps = int(15e8)
 
     # la gliglia per torneo
     num_fields = num_players * (num_players - 1)
@@ -398,10 +425,10 @@ if __name__ == '__main__':
 
     for update in range(1, total_timesteps // nbatch + 1):
         # Get mini batch of experiences
-        obs, states, rewards, masks, actions, values, epinfos = runner.run()
+        obs, states, rewards, masks, actions, values, epinfos, test = runner.run()
 
         # policy_loss, value_loss, policy_entropy = model.train(inv_obs, states, rewards, masks, inv_actions, values)
-        policy_loss, value_loss, policy_entropy = runner.do_model_train(obs, states, rewards, masks, actions, values)
+        policy_loss, value_loss, policy_entropy = runner.do_model_train(obs, states, rewards, masks, actions, values, test)
         # policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, values)
         nseconds = time.time() - tstart
 

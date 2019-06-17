@@ -29,7 +29,7 @@ class Haxball(Env):
         11: velocità y della palla
         12: distanza dal giocatore alla palla
         13: campo bloccato (1 se l'avversario deve ancora toccare la palla, 0 - se lo deve il giocatore o la partita è già iniziata)
-    
+
     Output (Azioni):
         0: NULL (aspettare / non fare niente)
         1: Premere UP
@@ -184,21 +184,21 @@ class Haxball(Env):
         # reward += player_vel_x ** 2 + player_vel_y ** 2
 
         # Velocità della palla verso la porta dell'avversario (però, va pensato bene, forse si deve contare solo i casi quando è il giocatore che tocca la palla, ma non l'avversario)
-        if abs(ball_vel_x) > 0.01 or abs(ball_vel_y) > 0.01:
-            vett_palla_porta = (self.gameplay.U.Ed + ball_pos_x, ball_pos_y)
-            ps = self.prodotto_scalare(vett_palla_porta, (-ball_vel_x, ball_vel_y))
-            velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
-            # if ps < 0:
-            #     ps /= 2
-            reward += 50 * ps * velocita_palla
-            # print(50 * ps * velocita_palla)
+        # if abs(ball_vel_x) > 0.01 or abs(ball_vel_y) > 0.01:
+        #     vett_palla_porta = (self.gameplay.U.Ed + ball_pos_x, ball_pos_y)
+        #     ps = self.prodotto_scalare(vett_palla_porta, (-ball_vel_x, ball_vel_y))
+        #     velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
+        #     # if ps < 0:
+        #     #     ps /= 2
+        #     reward += 500 * ps * velocita_palla
+        #     # print(50 * ps * velocita_palla)
 
         # reward += 50 * velocita_palla
 
         # Velocità troppo bassa (penalità)
         # if not campo_bloccato:
         #     velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
-        #     reward -= 100 * max(0.0, 0.5 - velocita_palla)
+        #     reward -= 2000 * max(0.0, 0.1 - velocita_palla)
 
         # Penalità se il giocatore e' "davanti" alla palla
         # if player_pos_x < ball_pos_x:
@@ -223,19 +223,19 @@ class Haxball(Env):
         if self.gameplay.red_scored:
             print('gol from red')
             if red_team:
-                goal_reward = +200_000
+                # goal_reward = +20_000
                 score = 1
             else:
-                goal_reward = -2_000
+                # goal_reward = -5_000
                 score = 0
             done = True
         elif self.gameplay.blue_scored:
             print('gol from blue')
             if red_team:
-                goal_reward = -2_000
+                # goal_reward = -5_000
                 score = 0
             else:
-                goal_reward = +200_000
+                # goal_reward = +20_000
                 score = 1
             done = True
 
@@ -264,9 +264,10 @@ class Haxball(Env):
                 done = True
                 score = 0.5
                 # reward -= 20_000
-            elif self._ticks >= self.max_ticks // 2:
+                print('draw')
+            elif self._ticks >= self.max_ticks // 8:
                 if deve_cominciare:
-                    # reward -= 20_000
+                    # reward -= 500_000
                     score = 0
                     print('lost by doing nothing')
                     done = True
