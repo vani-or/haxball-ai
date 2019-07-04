@@ -49,7 +49,7 @@ if __name__ == '__main__':
     total_timesteps = int(15e7)
     log_interval = 100
     load_path = None
-    load_path = 'models/ppo2_model_epoch_5280.h5'
+    load_path = 'ciao.local.h5'
     # model_i = 3
     model_i = ''
     # load_path = 'models/%s.h5' % model_i
@@ -57,8 +57,52 @@ if __name__ == '__main__':
     max_ticks = int(60*2*(1/0.1))
     env = HaxballSubProcVecEnv(num_fields=nenvs, max_ticks=max_ticks)
     policy = build_policy(env=env, policy_network='mlp', num_layers=4, num_hidden=256)
+    # policy = build_policy(env=env, policy_network='lstm')
 
-    model = A2CModel(policy, model_name='ppo2_model_epoch_5280', env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps, lr=7e-4)# 0.005) #, vf_coef=0.0)
+    model = A2CModel(policy, model_name='ppo_model_9', env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps, lr=7e-4)# 0.005) #, vf_coef=0.0)
+
+    play = True
+    if load_path is not None and os.path.exists(load_path):
+        model.load(load_path)
+
+    if play:
+        logger.log("Running trained model")
+        obs = env.reset()
+
+        state = model.initial_state if hasattr(model, 'initial_state') else None
+        dones = np.zeros((1,))
+
+        episode_rew = 0
+        episode_rew2 = 0
+        while True:
+            if state is not None:
+                actions, _, state, _ = model.step(obs, S=state, M=dones)
+            else:
+                actions, rew, _, _ = model.step(obs)
+
+            obs, rew, done, _ = env.step(actions)
+            episode_rew += rew[0] if isinstance(env, VecEnv) else rew
+            episode_rew2 += rew[1] if isinstance(env, VecEnv) else rew
+            env.render()
+            done = done.any() if isinstance(done, np.ndarray) else done
+            if done:
+                print('episode_rew={}, \t{}'.format(episode_rew, episode_rew2))
+                episode_rew = 0
+                episode_rew2 = 0
+                obs = env.reset()
+
+    # nsteps = 30
+    # model = PPOModel(
+    #     policy=policy,
+    #     ob_space=env.observation_space,
+    #     ac_space=env.action_space,
+    #     nbatch_act=env.num_envs,
+    #     nbatch_train=env.num_envs,
+    #     nsteps=nsteps,
+    #     ent_coef=0.05,
+    #     vf_coef=0.5,
+    #     max_grad_norm=0.5
+    # )# 0.005) #, vf_coef=0.0)
     if load_path is not None and os.path.exists(load_path):
         model.load(load_path)
 

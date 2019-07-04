@@ -92,16 +92,16 @@ if __name__ == '__main__':
 
     nsteps = 5
     gamma = 0.99
-    nenvs = 10
+    nenvs = 100
     total_timesteps = int(10e7)
     log_interval = 100
     load_path = None
-    load_path = 'ciao.h5'
+    load_path = 'models2/ciao.h5'
     # model_i = 8
     model_i = ''
     # load_path = 'models/%s.h5' % model_i
     play = bool(int(os.getenv('PLAY', False)))
-    # play = False
+    play = False
     if play:
         nenvs = 2
 
@@ -116,6 +116,8 @@ if __name__ == '__main__':
     policy = build_policy(env=env, policy_network='mlp', num_layers=4, num_hidden=256)
     # policy2 = build_policy(env=env2, policy_network='mlp')
 
+    # from baselines.ppo2.model import Model as PPOModel
+    # model = PPOModel(policy=policy, ob_space=env.observation_space, ac_space=env.action_space, nbatch_act=None, nsteps=nsteps, ent_coef=0.1, vf_coef=0.5, max_grad_norm=0.5, nbatch_train=None)
     model = A2CModel(policy, model_name='p' + str(model_i) if isinstance(model_i, int) and model_i > 0 else 'a2c_model', env=env, nsteps=nsteps, ent_coef=0.1, total_timesteps=total_timesteps, lr=7e-4)# 0.005) #, vf_coef=0.0)
     if load_path is not None and os.path.exists(load_path):
         model.load(load_path)
@@ -157,7 +159,11 @@ if __name__ == '__main__':
     tstart = time.time()
     last_rewards = []
 
-    graph_names = ('policy_entropy', 'value_loss', 'policy_loss', 'values_mean', 'rewards_mean', 'explained_variance')
+    graph_names = ('policy_entropy', 'value_loss', 'policy_loss', 'values_mean',
+                   'explained_variance',
+                   'rewards_mean', 'rewards_min', 'rewards_max', 'rewards_median', 'rewards_std',
+                   'values_mean', 'values_min', 'values_max', 'values_median', 'values_std'
+                   )
     graph_data = {k: [] for k in graph_names}
 
     for update in range(1, total_timesteps // nbatch + 1):
@@ -187,7 +193,7 @@ if __name__ == '__main__':
             # Calculates if value function is a good predicator of the returns (ev > 1)
             # or if it's just worse than predicting nothing (ev =< 0)
             ev = explained_variance(values, rewards)
-            logger.record_tabular("nupdates", update)
+            logger.record_tabular("nupdates", str(update))
             logger.record_tabular("total_timesteps", update * nbatch)
             logger.record_tabular('rewards', np.mean(rewards))
             logger.record_tabular('values', np.mean(values))
@@ -204,12 +210,21 @@ if __name__ == '__main__':
             graph_data['value_loss'].append(float(value_loss))
             graph_data['policy_loss'].append(float(policy_loss))
             graph_data['values_mean'].append(np.mean(values))
+            graph_data['values_min'].append(np.min(values))
+            graph_data['values_max'].append(np.max(values))
+            graph_data['values_std'].append(np.std(values))
+            graph_data['values_median'].append(np.median(values))
             graph_data['rewards_mean'].append(np.mean(rewards))
+            graph_data['rewards_min'].append(np.min(rewards))
+            graph_data['rewards_max'].append(np.max(rewards))
+            graph_data['rewards_std'].append(np.std(rewards))
+            graph_data['rewards_median'].append(np.median(rewards))
             graph_data['explained_variance'].append(float(ev))
             with open(load_path + '.graph', 'wb') as fp:
                 pickle.dump(graph_data, fp)
 
             # if np.mean(rewards) > 0:
             #     input('rewards!!!')
-        if update % 500 == 0:
-            model.save(load_path)
+        if update % 5_000 == 0:
+            load_path_i = load_path.replace('.h5', '_' + str(update) + '.h5')
+            model.save(load_path_i)

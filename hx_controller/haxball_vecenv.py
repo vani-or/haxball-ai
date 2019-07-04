@@ -1,3 +1,4 @@
+import logging
 from copy import copy
 
 from baselines.common.vec_env import VecEnv
@@ -5,8 +6,9 @@ import numpy as np
 from baselines.common.vec_env.util import obs_space_info
 from simulator import create_start_conditions
 from hx_controller.haxball_gym import Haxball
-from multiprocessing import Process, Pipe
+from multiprocessing import Process, Pipe, cpu_count
 from multiprocessing.connection import Connection
+from multiprocessing.pool import Pool
 
 
 class HaxballVecEnv(VecEnv):
@@ -191,7 +193,12 @@ class HaxballSubProcVecEnv(HaxballVecEnv):
         self.connections = []
         for i in range(num_fields):
             parent_conn, child_conn = Pipe()
-            p = Process(target=env_worker, args=(child_conn, ), kwargs=dict(max_ticks=max_ticks))
+            p = Process(
+                target=env_worker,
+                daemon=True,
+                args=(child_conn, ),
+                kwargs=dict(max_ticks=max_ticks)
+            )
             p.start()
             self.connections.append(parent_conn)
 
@@ -243,3 +250,173 @@ class HaxballSubProcVecEnv(HaxballVecEnv):
         imgs = [pipe.recv() for pipe in self.connections]
         return imgs
 
+
+def env_worker_multiple_envs(conn: Connection, **env_kwargs):
+    envs = {}
+
+    def get_env(field_id):
+        if field_id in envs:
+            return envs[field_id]
+        else:
+            gameplay = create_start_conditions()
+            env = Haxball(gameplay=gameplay, **env_kwargs)
+            envs[field_id] = env
+            return env
+
+    while True:
+        cmd, data = conn.recv()
+
+        if cmd == 'step':
+            field_id, a1, a2 = data
+            env = get_env(field_id)
+
+            env.step_async(a1, red_team=True)
+            env.step_async(a2, red_team=False)
+
+            env.step_physics()
+
+            obss = []
+            rews = []
+            dones = []
+            infos = []
+            is_done = False
+
+            for red_team in (True, False):
+                obs, rew, done, info = env.step_wait(red_team=red_team)
+                obss.append(obs)
+                rews.append(rew)
+                dones.append(done)
+                infos.append(info)
+                is_done |= done
+            if is_done:
+                env.reset()
+
+            res = field_id, np.array(obss), np.array(rews), np.array(dones), np.array(infos)
+            conn.send(res)
+        elif cmd == 'reset':
+            field_id = data
+            env = get_env(field_id)
+            ob = env.reset()
+            conn.send([ob, ob])
+        elif cmd == 'render':
+            field_id = data
+            env = get_env(field_id)
+            res = env.render(mode='rgb_array')
+            conn.send(res)
+        elif cmd == 'close':
+            conn.close()
+            break
+        elif cmd == 'get_spaces_spec':
+            field_id = data
+            env = get_env(field_id)
+            conn.send((env.observation_space, env.action_space, env.spec))
+        else:
+            raise NotImplementedError
+
+
+class HaxballProcPoolVecEnv(HaxballVecEnv):
+    def __init__(self, num_fields, max_ticks=2400):
+        self.num_fields = num_fields
+        self.num_envs = num_fields * 2
+        self.max_ticks = max_ticks
+
+        self.n_processes = cpu_count()
+        logging.debug('Starting processes pool with N=%s' % self.n_processes)
+
+        self.connections = []
+        for i in range(self.n_processes):
+            parent_conn, child_conn = Pipe()
+            p = Process(
+                target=env_worker_multiple_envs,
+                daemon=True,
+                args=(child_conn,),
+                kwargs=dict(max_ticks=max_ticks)
+            )
+            p.start()
+            self.connections.append(parent_conn)
+
+        self.connections[0].send(('get_spaces_spec', 0))
+        self.observation_space, self.action_space, spec = self.connections[0].recv()
+
+        # self.conditions = []
+        # for i in range(self.num_fields):
+        #     gp = create_start_conditions()
+        #     self.conditions.append(gp.export_state())
+
+    def set_num_fields(self, num_fields):
+        self.num_fields = max(1, num_fields)
+        self.num_envs = self.num_fields * 2
+
+    def step_async(self, actions):
+        for field_id, a1, a2 in zip(range(self.num_fields), actions[0::2], actions[1::2]):
+            i_process = field_id % self.n_processes
+            remote = self.connections[i_process]
+            remote.send(('step', (field_id, a1, a2)))
+        self.waiting = True
+
+    def step_wait(self):
+        obs = None
+        rews = None
+        dones = None
+        infos = None
+        for field_id in range(self.num_fields):
+            i_process = field_id % self.n_processes
+            remote = self.connections[i_process]
+            # for remote in self.connections:
+            result = remote.recv()
+            # print('arrived %s' % result[0])
+            if obs is None:
+                field_id = result[0]
+                obs = result[1]
+                rews = result[2]
+                dones = result[3]
+                infos = result[4]
+            else:
+                # field_id = np.vstack((obs, result[0]))
+                obs = np.vstack((obs, result[1]))
+                rews = np.hstack((rews, result[2]))
+                dones = np.hstack((dones, result[3]))
+                infos = np.hstack((infos, result[4]))
+
+        self.waiting = False
+        return np.stack(obs), np.stack(rews), np.stack(dones), infos
+
+    def reset(self):
+        for field_id in range(self.num_fields):
+            i_process = field_id % self.n_processes
+            remote = self.connections[i_process]
+            remote.send(('reset', field_id))
+        obs = []
+        for field_id in range(self.num_fields):
+            i_process = field_id % self.n_processes
+            remote = self.connections[i_process]
+            obs += remote.recv()
+        return np.stack(obs)
+
+    # def get_images(self):
+    #     for field_id in range(self.num_fields):
+    #         i_process = field_id % self.n_processes
+    #         remote = self.connections[i_process]
+    #         remote.send(('render', field_id))
+    #     imgs = [remote.recv() for remote in self.connections]
+    #     return imgs
+
+
+if __name__ == '__main__':
+    import time
+    n_fields = 10
+    N_iters = 500
+    hx_env = HaxballProcPoolVecEnv(n_fields, max_ticks=2400)
+    hx_env.reset()
+    started = time.time()
+    for i in range(N_iters):
+        res = hx_env.step([1] * n_fields * 2)
+    print('ProcessPool', time.time() - started)
+
+    hx_sub_env = HaxballSubProcVecEnv(n_fields, max_ticks=2400)
+    # obs = hx_sub_env.reset()
+
+    started = time.time()
+    for i in range(N_iters):
+        res = hx_sub_env.step([1] * n_fields * 2)
+    print('N process pipes', time.time() - started)

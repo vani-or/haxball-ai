@@ -711,6 +711,39 @@ class GamePlay:
             game_play_instance=self
         )
 
+    def export_state(self):
+        return {
+            'posizione_palla': self.wa.K[0].a,
+            'velocita_palla': self.wa.K[0].M,
+            'posizione_blu': self.wa.K[6].M,
+            'velocita_blu': self.wa.K[6].a,
+            'input_blu': self.Pa.D[2].mb,
+            'posizione_rosso': self.wa.K[5].M,
+            'velocita_rosso': self.wa.K[5].a,
+            'input_rosso': self.Pa.D[1].mb,
+            'tempo_iniziale': self.Ac,
+            'punteggio_rosso': self.Kb,
+            'punteggio_blu': self.Cb,
+            'commincia_rosso': self.Jd.o == 'Red'
+        }
+
+    def import_state(self, state):
+        self.wa.K[0].a = state['posizione_palla']
+        self.wa.K[0].M = state['velocita_palla']
+        self.wa.K[6].M = state['posizione_blu']
+        self.wa.K[6].a = state['velocita_blu']
+        self.Pa.D[2].mb = state['input_blu']
+        self.wa.K[5].M = state['posizione_rosso']
+        self.wa.K[5].a = state['velocita_rosso']
+        self.Pa.D[1].mb = state['input_rosso']
+        self.Ac = state['tempo_iniziale']
+        self.Kb = state['punteggio_rosso']
+        self.Cb = state['punteggio_blu']
+        if state['commincia_rosso']:
+            self.Jd.o = self.red_team_inst
+        else:
+            self.Jd.o = self.blu_team_inst
+
 
 def create_start_conditions(
         posizione_palla: Union[None, Vector] = None,
