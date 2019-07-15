@@ -22,6 +22,7 @@ from hx_controller.haxball_gym import Haxball
 from hx_controller.haxball_vecenv import HaxballVecEnv, HaxballSubProcVecEnv
 from hx_controller.openai_model_torneo import A2CModel
 from simulator import create_start_conditions, Vector
+from simulator.simulator.cenv import Vector as CVector, create_start_conditions as Ccreate_start_conditions
 import numpy as np
 from collections import deque
 
@@ -49,7 +50,8 @@ if __name__ == '__main__':
     total_timesteps = int(15e7)
     log_interval = 100
     load_path = None
-    load_path = 'models/ppo2_model_epoch_5280.h5'
+    load_path = 'ppo2.h5'
+    # load_path = 'ppo2.h5'
     # model_i = 3
     model_i = ''
     # load_path = 'models/%s.h5' % model_i
@@ -57,8 +59,12 @@ if __name__ == '__main__':
     max_ticks = int(60*2*(1/0.1))
     env = HaxballSubProcVecEnv(num_fields=nenvs, max_ticks=max_ticks)
     policy = build_policy(env=env, policy_network='mlp', num_layers=4, num_hidden=256)
+    # policy = build_policy(env=env, policy_network='lstm', nlstm=512)  # num_layers=4, num_hidden=256)
 
-    model = A2CModel(policy, model_name='ppo2_model_epoch_5280', env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps, lr=7e-4)# 0.005) #, vf_coef=0.0)
+    model = A2CModel(policy, model_name='ppo2_model', env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps, lr=7e-4)# 0.005) #, vf_coef=0.0)
+    # nbatch = 100 * 12
+    # nbatch_train = nbatch // 4
+    # model = PPOModel(policy=policy, nsteps=12, ent_coef=0.05, ob_space=env.observation_space, ac_space=env.action_space, nbatch_act=100, nbatch_train=nbatch_train, vf_coef=0.5, max_grad_norm=0.5)# 0.005) #, vf_coef=0.0)
     if load_path is not None and os.path.exists(load_path):
         model.load(load_path)
 
@@ -70,21 +76,21 @@ if __name__ == '__main__':
     clock = pygame.time.Clock()
     screen = pygame.display.set_mode(size)
 
-    gameplay = create_start_conditions(
-        posizione_palla=Vector(0, 0),
-        velocita_palla=Vector(0, 0),
-        posizione_blu=Vector(277.5, 0),
-        velocita_blu=Vector(0, 0),
+    gameplay = Ccreate_start_conditions(
+        posizione_palla=CVector(0, 0),
+        velocita_palla=CVector(0, 0),
+        posizione_blu=CVector(277.5, 0),
+        velocita_blu=CVector(0, 0),
         input_blu=0,
-        posizione_rosso=Vector(-277.5, 0),
-        velocita_rosso=Vector(0, 0),
+        posizione_rosso=CVector(-277.5, 0),
+        velocita_rosso=CVector(0, 0),
         input_rosso=0,
         tempo_iniziale=0,
         punteggio_rosso=0,
         punteggio_blu=0
     )
 
-    env = Haxball(gameplay=gameplay, max_ticks=max_ticks)
+    env = Haxball(gameplay=gameplay, max_ticks=max_ticks*2)
     obs = env.reset()
     action = 0
 
@@ -95,6 +101,8 @@ if __name__ == '__main__':
 
     D_i = 1 if play_red else 2
     i = 0
+    reward = None
+    ret = None
     while True:
         i += 1
         for event in pygame.event.get():
@@ -122,15 +130,18 @@ if __name__ == '__main__':
 
         # a1, a2 = data
         # env.step_async(a1, red_team=True)
-        if i % 6 == 0:
+        if i % 3 == 0:
 
             #
             # env.step_physics()
             #
             obs, rew, done, info = env.step_wait(red_team=not play_red)
+            reward = rew
             if done:
                 env.reset()
             actions, rew, _, _ = model.step(obs)
+            ret = float(rew[0])
+            # actions, rew, _, _ = model.step(obs, S=None, M=[0])
             action = actions[0]
             env.step_async(action, red_team=not play_red)
 
@@ -156,7 +167,7 @@ if __name__ == '__main__':
         # else:
         #     red_unpressed = True
 
-        draw_frame(screen, gameplay)
+        draw_frame(screen, gameplay, reward=reward, ret=ret)
 
         # screen.blit(ball, ballrect)
         pygame.display.flip()

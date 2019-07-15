@@ -29,14 +29,14 @@ if __name__ == '__main__':
     lr = 3e-4,
     vf_coef = 0.5
     max_grad_norm = 0.5
-    models_path = 'models/'
+    models_path = 'models3/'
     os.makedirs(models_path, exist_ok=True)
 
     # load_path = 'ciao.h5'
     save_interval = 20
     load_path = None
     log_interval = 20
-    new_player_introduce_interval = 220
+    new_player_introduce_interval = 200
     total_timesteps = int(10e7)
     max_ticks = int(60 * 2 * (1 / 0.1))
     env = HaxballProcPoolVecEnv(num_fields=nenvs//2, max_ticks=max_ticks)
@@ -168,7 +168,13 @@ if __name__ == '__main__':
     nupdates = total_timesteps // nbatch // runner.m
     nupdates = 16000
     print('nupdates: %s' % nupdates)
-    for update in range(5280, nupdates + 1):
+
+    start_update = 1
+    with open(models_path + '/update.txt', 'r') as fp:
+        start_update = int(fp.read())
+    print('start_update: %s' % start_update)
+
+    for update in range(start_update, nupdates + 1):
         assert nbatch % nminibatches == 0
         # Start timer
         tstart = time.perf_counter()
@@ -217,17 +223,23 @@ if __name__ == '__main__':
             logger.logkv("ELO worst: %s" % runner.models[positions[-1]].model_name, str(round(runner.ratings[positions[-1]], 1)))
 
             if update % new_player_introduce_interval == 0 and update > 0:
-                best_model = runner.models[positions[0]]
-                new_model_rating = runner.ratings[positions[0]]
-                if '_epoch_' not in best_model.model_name:
-                    new_model_name = best_model.model_name + '_epoch_' + str(update)
+                i = 0
+                while i < runner.m:
+                    best_model = runner.models[positions[i]]
+                    new_model_rating = runner.ratings[positions[i]]
+                    if not best_model.trainable or 'ppo2' in best_model.model_name:
+                        i += 1
+                        continue
+                    if '_epoch_' not in best_model.model_name:
+                        new_model_name = best_model.model_name + '_epoch_' + str(update)
 
-                    # reserved name?
-                    if all(x.model_name != new_model_name for x in runner.models):
-                        print('New player! From %s with rating %s' % (best_model.model_name, new_model_rating))
+                        # reserved name?
+                        if all(x.model_name != new_model_name for x in runner.models):
+                            print('New player! From %s with rating %s' % (best_model.model_name, new_model_rating))
 
-                        new_model = ppo_model_creator(new_model_name, from_model=best_model, trainable=False)
-                        runner.add_model(new_model, rating=new_model_rating)
+                            new_model = ppo_model_creator(new_model_name, from_model=best_model, trainable=False)
+                            runner.add_model(new_model, rating=new_model_rating)
+                    break
 
             if eval_env is not None:
                 logger.logkv('eval_eprewmean', safemean([epinfo['r'] for epinfo in eval_epinfobuf]))

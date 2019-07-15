@@ -5,10 +5,10 @@ from baselines.common.vec_env import VecEnv
 import numpy as np
 from baselines.common.vec_env.util import obs_space_info
 from simulator import create_start_conditions
+from simulator.simulator.cenv import Vector as CVector, create_start_conditions as Ccreate_start_conditions
 from hx_controller.haxball_gym import Haxball
 from multiprocessing import Process, Pipe, cpu_count
 from multiprocessing.connection import Connection
-from multiprocessing.pool import Pool
 
 
 class HaxballVecEnv(VecEnv):
@@ -17,7 +17,7 @@ class HaxballVecEnv(VecEnv):
         self.num_envs = num_fields * 2
         self.envs = []
         for i in range(num_fields):
-            gameplay = create_start_conditions()
+            gameplay = Ccreate_start_conditions()
             env = Haxball(gameplay=gameplay, max_ticks=max_ticks)
             self.envs.append(env)
 
@@ -139,7 +139,7 @@ class HaxballVecEnv(VecEnv):
 
 
 def env_worker(conn: Connection, **env_kwargs):
-    gameplay = create_start_conditions()
+    gameplay = Ccreate_start_conditions()
     env = Haxball(gameplay=gameplay, **env_kwargs)
     i = 0
     while True:
@@ -202,8 +202,12 @@ class HaxballSubProcVecEnv(HaxballVecEnv):
             p.start()
             self.connections.append(parent_conn)
 
-        self.connections[0].send(('get_spaces_spec', None))
-        observation_space, action_space, spec = self.connections[0].recv()
+        # self.connections[0].send(('get_spaces_spec', None))
+        tmp_env = Haxball()
+        observation_space = tmp_env.observation_space
+        action_space = tmp_env.action_space
+        # spec = tmp_env.spec
+        # observation_space, action_space, spec = self.connections[0].recv()
 
         self.observation_space = observation_space
         self.action_space = action_space
@@ -258,7 +262,7 @@ def env_worker_multiple_envs(conn: Connection, **env_kwargs):
         if field_id in envs:
             return envs[field_id]
         else:
-            gameplay = create_start_conditions()
+            gameplay = Ccreate_start_conditions()
             env = Haxball(gameplay=gameplay, **env_kwargs)
             envs[field_id] = env
             return env
@@ -267,31 +271,41 @@ def env_worker_multiple_envs(conn: Connection, **env_kwargs):
         cmd, data = conn.recv()
 
         if cmd == 'step':
-            field_id, a1, a2 = data
-            env = get_env(field_id)
-
-            env.step_async(a1, red_team=True)
-            env.step_async(a2, red_team=False)
-
-            env.step_physics()
-
             obss = []
             rews = []
             dones = []
             infos = []
-            is_done = False
 
-            for red_team in (True, False):
-                obs, rew, done, info = env.step_wait(red_team=red_team)
-                obss.append(obs)
-                rews.append(rew)
-                dones.append(done)
-                infos.append(info)
-                is_done |= done
-            if is_done:
-                env.reset()
+            field_ids, a1s, a2s = zip(*data)
+            players_i = []
+            for i, field_id in enumerate(field_ids):
+                field_id = field_ids[i]
+                a1 = a1s[i]
+                a2 = a2s[i]
 
-            res = field_id, np.array(obss), np.array(rews), np.array(dones), np.array(infos)
+                players_i.append(field_id * 2)
+                players_i.append(field_id * 2 + 1)
+
+                env = get_env(field_id)
+
+                env.step_async(a1, red_team=True)
+                env.step_async(a2, red_team=False)
+
+                env.step_physics()
+
+                is_done = False
+
+                for red_team in (True, False):
+                    obs, rew, done, info = env.step_wait(red_team=red_team)
+                    obss.append(obs)
+                    rews.append(rew)
+                    dones.append(done)
+                    infos.append(info)
+                    is_done |= done
+                if is_done:
+                    env.reset()
+
+            res = field_ids, players_i, np.array(obss), np.array(rews), np.array(dones), np.array(infos)
             conn.send(res)
         elif cmd == 'reset':
             field_id = data
@@ -317,7 +331,7 @@ def env_worker_multiple_envs(conn: Connection, **env_kwargs):
 class HaxballProcPoolVecEnv(HaxballVecEnv):
     def __init__(self, num_fields, max_ticks=2400):
         self.num_fields = num_fields
-        self.num_envs = num_fields * 2
+        self.num_envs = num_fields * 2  # per 2 perché pre 2 giocatori su un singolo campo
         self.max_ticks = max_ticks
 
         self.n_processes = cpu_count()
@@ -348,37 +362,51 @@ class HaxballProcPoolVecEnv(HaxballVecEnv):
         self.num_envs = self.num_fields * 2
 
     def step_async(self, actions):
+        inputs = {i: [] for i in range(self.n_processes)}
+
         for field_id, a1, a2 in zip(range(self.num_fields), actions[0::2], actions[1::2]):
             i_process = field_id % self.n_processes
+            inputs[i_process].append((field_id, a1, a2))
+            # remote = self.connections[i_process]
+            # remote.send(('step', (field_id, a1, a2)))
+        for i_process, vals in inputs.items():
+            # for i_process in range(self.n_processes):
             remote = self.connections[i_process]
-            remote.send(('step', (field_id, a1, a2)))
-        self.waiting = True
+            remote.send(('step', vals))
 
     def step_wait(self):
-        obs = None
-        rews = None
-        dones = None
-        infos = None
-        for field_id in range(self.num_fields):
-            i_process = field_id % self.n_processes
-            remote = self.connections[i_process]
-            # for remote in self.connections:
-            result = remote.recv()
-            # print('arrived %s' % result[0])
-            if obs is None:
-                field_id = result[0]
-                obs = result[1]
-                rews = result[2]
-                dones = result[3]
-                infos = result[4]
-            else:
-                # field_id = np.vstack((obs, result[0]))
-                obs = np.vstack((obs, result[1]))
-                rews = np.hstack((rews, result[2]))
-                dones = np.hstack((dones, result[3]))
-                infos = np.hstack((infos, result[4]))
+        obs = np.ndarray(shape=(2 * self.num_fields, self.observation_space.shape[0]))
+        rews = np.ndarray(shape=(2 * self.num_fields, ))
+        dones = np.ndarray(shape=(2 * self.num_fields, ))
+        infos = np.ndarray(shape=(2 * self.num_fields, ), dtype=object)
+        # players = np.ndarray(shape=(2 * self.num_fields, ), dtype=object)
 
-        self.waiting = False
+        for remote in self.connections:
+            result = remote.recv()
+            field_ids = result[0]
+            players_is = result[1]
+            obs[players_is] = result[2]
+            rews[players_is] = result[3]
+            dones[players_is] = result[4]
+            infos[players_is] = result[5]
+            # players[players_is] = players_is
+
+        # prev_start = -1
+        # for field_id in range(self.num_fields):
+        #     i_process = field_id % self.n_processes
+        #     remote = self.connections[i_process]
+        #     # for remote in self.connections:
+        #     result = remote.recv()
+        #     # print('arrived %s' % result[0])
+        #     field_id = result[0]
+        #     start = field_id * 2
+        #     prev_start = start
+        #     end = field_id * 2 + 2
+        #     obs[start:end] = result[1]
+        #     rews[start:end] = result[2]
+        #     dones[start:end] = result[3]
+        #     infos[start:end] = result[4]
+
         return np.stack(obs), np.stack(rews), np.stack(dones), infos
 
     def reset(self):

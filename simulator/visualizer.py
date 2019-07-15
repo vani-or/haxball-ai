@@ -1,6 +1,6 @@
 import sys, pygame
 import time
-from typing import List, Union
+from typing import List, Union, Optional
 from simulator import create_start_conditions, Vector, GamePlay
 
 
@@ -16,8 +16,9 @@ def format_time(seconds: Union[int, float]) -> str:
     return "{:0>2d}:{:0>2d}:{:0>2d}".format(hours, mins, secs)
 
 
-def draw_frame(screen, gameplay: GamePlay):
+def draw_frame(screen, gameplay: GamePlay, reward: Optional[float] = None, ret: Optional[float] = None):
     font = pygame.font.SysFont("monospace", 44)
+    font_small = pygame.font.SysFont("monospace", 18)
     screen.fill(black)
 
     # Linee
@@ -75,6 +76,11 @@ def draw_frame(screen, gameplay: GamePlay):
     # Tempo
     text = font.render(format_time(gameplay.Ac), True, (0, 0, 0))
     screen.blit(text, (center[0] - 375, center[1] - 250))
+
+    # Reward
+    if reward is not None and ret is not None:
+        text = font_small.render("Rew: %2.3f (Ret: %2.3f)" % (reward, ret), True, (0, 0, 0))
+        screen.blit(text, (center[0] + 150, center[1] - 220))
 
 
 if __name__ == '__main__':

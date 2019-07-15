@@ -2,30 +2,47 @@ import copy
 import math
 import time
 from typing import List, Union
+from libc.math cimport sqrt
 
 
-class Vector:
+cdef class Vector:
     """
     class M
     """
-    def __init__(self, x, y) -> None:
+    cdef public float x
+    cdef public float y
+
+    def __init__(self, x, y):
         self.x = x
         self.y = y
 
-    def __repr__(self):
-        return '(x=%s, y=%s)' % (self.x, self.y)
+    # def __init__(self, x, y):
+    #     self.x = x
+    #     self.y = y
 
-    def __copy__(self):
-        return Vector(self.x, self.y)
+    # cpdef __repr__(self):
+    #     return '(x=%s, y=%s)' % (self.x, self.y)
 
+    # cpdef __copy__(self):
+    #     return Vector(self.x, self.y)
+    #
     def __eq__(self, other: 'Vector'):
         return self.x == other.x and self.y == other.y
 
-
-class BasicObject:
+cdef class BasicObject:
     """
     class ua
     """
+    cdef public int B
+    cdef public float Ba
+    cdef public Vector M
+    cdef public int X
+    cdef public Vector a
+    cdef public int h
+    cdef public float l
+    cdef public int la
+    cdef public float pa
+
     def __init__(self, position: Vector) -> None:
         self.B = -1
         self.Ba = 0.99  # damping
@@ -38,16 +55,21 @@ class BasicObject:
         self.pa = 0  # type: float # invMass
 
 
-class Object(BasicObject):
+cdef class Object(BasicObject):
     """
     class X
     """
+    # cdef public float Yb
+    cdef public int Zb
+    cdef public int gj
+    cdef public int zk
+
     def __init__(self) -> None:
         self.B = 2
         self.Ba = 0.96  # damping
         self.M = None  # type: Vector # position
         self.X = 0
-        self.Yb = None
+        # self.Yb = None
         self.Zb = -1
         self.a = None  # type: Vector # current velocity
         self.gj = 0
@@ -60,6 +82,7 @@ class Object(BasicObject):
         # .Be kickingAcceleration
         # .Ce kickingDamping
         # .Kd kickStrength
+
     def dollar_m(self, a: 'Object'):
         b = self.a  # // var b = this.a // la posizione della palla
         c = a.a  # , c = a.a
@@ -68,7 +91,7 @@ class Object(BasicObject):
         e = a.la + self.la  # , e = a.la + this.la // "la" e' il raggio. la "e" e' la somma dei raggi
         f = d * d + b * b # , f = d * d + b * b; // distanza alla due tra la palla e il oggetto
         if 0 < f and f <= e * e: # if (0 < f && f <= e * e) { // se la distanza tra la palla e il oggetto e' minore della somma
-            f = math.sqrt(f)  # var f = Math.sqrt(f) // distanza pura
+            f = sqrt(f)  # var f = Math.sqrt(f) // distanza pura
             d = d / f  # , d = d / f // vettore-direzione che punta dall'oggettoa alla palla, comp. X
             b = b / f  # , b = b / f // vettore-direzione che punta dall'oggettoa alla palla, comp. Y
             c = self.pa / (self.pa + a.pa)  # , c = this.pa / (this.pa + a.pa) // invMass. Massa ridotta fratto massa della palla
@@ -93,11 +116,11 @@ class Object(BasicObject):
                 f = self.M  # g = f = this.M,
                 f.x = g.x - d * c  # f.x = g.x - d * c, // aggiornamento della velocita della palla
                 f.y = g.y - b * c  # f.y = g.y - b * c,
-                a = a.M  # a = f = a.M,
-                f = a  # a = f = a.M,
+                aa = a.M  # a = f = a.M,
+                f = aa  # a = f = a.M,
                 c = e - c  # c = e - c,
-                f.x = a.x + d * c  # f.x = a.x + d * c, // aggiornamento della velocita dell'oggetto
-                f.y = a.y + b * c  # f.y = a.y + b * c)
+                f.x = aa.x + d * c  # f.x = a.x + d * c, // aggiornamento della velocita dell'oggetto
+                f.y = aa.y + b * c  # f.y = a.y + b * c)
 
     def an(self, a: 'D'):
         if a.tb == float('Infinity'):  # if (0 != 0 * a.tb) { // se a.tb==Infinity
@@ -124,7 +147,7 @@ class Object(BasicObject):
             e = a.kg  # e = a.kg;
             if (0 < d.x * b + d.y * c and 0 < e.x * b + e.y * c) == (0 >= a.tb):  # if ((0 < d.x * b + d.y * c && 0 < e.x * b + e.y * c) == 0 >= a.tb) TODO: tradurre bene
                 return  # return;
-            e = math.sqrt(b * b + c * c)  # e = Math.sqrt(b * b + c * c);
+            e = sqrt(b * b + c * c)  # e = Math.sqrt(b * b + c * c);
             if 0 == e:  #  if (0 == e)
                 return  # return;
             d = e - a.rj  # d = e - a.rj;
@@ -157,9 +180,9 @@ class Object(BasicObject):
             if 0 > d:  # 0 > d && (d *= this.l * a.l + 1,
                 d *= self.l * a.l + 1
                 e = self.M  # e = a = this.M,
-                a = self.M  # e = a = this.M,
-                a.x = e.x - b * d  # a.x = e.x - b * d,
-                a.y = e.y - c * d  # a.y = e.y - c * d))
+                aa = self.M  # e = a = this.M,
+                aa.x = e.x - b * d  # a.x = e.x - b * d,
+                aa.y = e.y - c * d  # a.y = e.y - c * d))
         """
         d >= this.la || (d = this.la - d,
             f = e = this.a,
@@ -170,17 +193,25 @@ class Object(BasicObject):
         0 > d && (d *= this.l * a.l + 1,
             e = a = this.M,
             a.x = e.x - b * d,
-            a.y = e.y - c * d)) 
+            a.y = e.y - c * d))
         """
 
-class Team:
+cdef class Team:
     """
     class p
     """
+    cdef public int B
+    cdef public int P
+    cdef public Team Tf
+    cdef public int X
+    cdef public int dh
+    cdef public int mo
+    cdef public str o
+    cdef public str sn
 
     def __init__(self) -> None:
         self.B = 2
-        self.El = None # ka, {Tc: 16777215, cb: Array(1)}
+        # self.El = None # ka, {Tc: 16777215, cb: Array(1)}
         self.P = 1
         self.Tf = None  # type: Team # p, {Tf: p, P: 2, X: 5671397, dh: 1, mo: 16, …}
         self.X = 15035990
@@ -190,10 +221,23 @@ class Team:
         self.sn = "t-red"
 
 
-class User:
+cdef class User:
     """
     class ea
     """
+    cdef public Team dollar
+    cdef public int Bb
+    cdef public Object F
+    cdef public int T
+    cdef public int bc
+    cdef public int mb
+    cdef public str o
+    cdef public int ra
+    cdef public int uc
+    cdef public int wb
+    cdef public str wd
+    cdef public int wg
+    cdef public int xd
 
     def __init__(self) -> None:
         self.dollar = None  # type: Team
@@ -201,8 +245,8 @@ class User:
         self.F = None  # type: Object
         self.T = 0
         self.bc = False  # type: bool
-        self.im = None
-        self.jb = None
+        # self.im = None
+        # self.jb = None
         self.mb = 0
         self.o = "Host"  # type: str
         self.ra = True  # type: bool # admin?
@@ -212,10 +256,14 @@ class User:
         self.wg = 0
         self.xd = False  # type: bool
 
-class mb:
+cdef class mb:
     """
     TODO: da capire che cosa e' mb
     """
+    cdef public Vector R
+    cdef public Vector V
+    cdef public Team Yd
+
     def __init__(self, palo_alto: Vector, palo_basso: Vector, squadra: Team) -> None:
         self.R = palo_alto  # type: Vector
         self.V = palo_basso  # type: Vector
@@ -227,10 +275,16 @@ class mb:
         """
 
 
-class z:
+cdef class z:
     """
     TODO: da capire che cosa e' z
     """
+    cdef public int B
+    cdef public Vector a
+    cdef public int gd
+    cdef public int h
+    cdef public float l
+
     def __init__(self, B: int, a: Vector, gd: int, h: int, l: float) -> None:
         self.B = B
         self.a = a  # type: Vector # {x: 378, y: -64}
@@ -239,10 +293,25 @@ class z:
         self.l = l
 
 
-class D:
+cdef class D:
     """
     TODO: Da capire che cosa è D
     """
+    cdef public int B
+    cdef public Vector Hd
+    cdef public z R
+    cdef public z V
+    cdef public int Wa
+    cdef public int X
+    cdef public int h
+    cdef public Vector jg
+    cdef public Vector kg
+    cdef public float l
+    cdef public int rj
+    cdef public Vector sa
+    cdef public float tb
+    cdef public int xc
+
     def __init__(self, B: int, Hd: Union[None, Vector], R: z, V: z, Wa: bool, X: int, h: int, jg: Union[None, Vector], kg: Union[None, Vector], l: float, rj: int, sa: Union[None, Vector], tb: float, xc: int) -> None:
         self.B = B
         self.Hd = Hd  # type: Vector # M {x: 378, y: -42}
@@ -260,7 +329,13 @@ class D:
         self.xc = xc
 
 
-class I:
+cdef class I:
+    cdef public int B
+    cdef public int Oa
+    cdef public int h
+    cdef public int l
+    cdef public Vector sa
+
     def __init__(self, B: int, Oa: int, h: int, l: int, sa: Vector) -> None:
         self.B = B
         self.Oa = Oa
@@ -269,10 +344,18 @@ class I:
         self.sa = sa
 
 
-class zb:
+cdef class zb:
     """
     TODO: da capire che cosa e' zb
     """
+    cdef public float Ba
+    cdef public float Be
+    cdef public float Ce
+    cdef public int Kd
+    cdef public float l
+    cdef public float me
+    cdef public float pa
+
     def __init__(self) -> None:
         self.Ba = 0.96
         self.Be = 0.07
@@ -283,10 +366,31 @@ class zb:
         self.pa = 0.5
 
 
-class Field:
+cdef class Field:
     """
     class h
     """
+    cdef public list C
+    cdef public int Dd
+    cdef public int Ed
+    cdef public int Fe
+    cdef public int Ic
+    cdef public list K
+    cdef public list O
+    cdef public int Sb
+    cdef public int Yc
+    cdef public int Zc
+    cdef public float ac
+    cdef public int bh
+    cdef public int fc
+    cdef public list ha
+    cdef public int hc
+    cdef public list kc
+    cdef public str o
+    cdef public int qe
+    cdef public int rf
+    cdef public Team spec_team_inst
+    cdef public zb Rd
 
     def __init__(self) -> None:
         self.C = []  # type: List[z]  # (20)[z, z, z, z, z, z, z, z, z, z, z, z, z, z, z, z, z, z, z, z]
@@ -318,14 +422,14 @@ class Field:
         # Esempio di mb: {R: <M> {x: 370, y: -64}, V: <M> {x: 370, y: 64}, Yd: <p>}
 
         self.o = "Classic"
-        oe = None  # type: BasicObject # ua
+        # oe = None  # type: BasicObject # ua
         # Esempio di ua: {B: 1, Ba: 0.99, M: M {x: 0, y: 0}, X: 16777215, a: M {x: 0, y: 0}, h: -1, l: 0.5, la: 10, pa: 1}
 
         self.qe = 0
         self.rf = True
         self.spec_team_inst = None
 
-    def Vm(self, a, b):
+    cdef public Team Vm(self, a, b):
         c = 0
         d = self.kc
         while c < len(d):  # for (var c = 0, d = this.kc; c < d.length;) {
@@ -353,37 +457,50 @@ class Field:
         return self.spec_team_inst  # return p.Fa; // Forse è la squadra degli spectators
 
 
-class Room:
+cdef class Room:
     """
     class fa
     """
+    cdef public str dollar_b
+    cdef public list D
+    cdef public GamePlay H
+    cdef public Field U
+    cdef public int Zb
+    cdef public int fb
+    cdef public int xa
+
     def __init__(self) -> None:
         self.dollar_b = "Ciao room"
         self.D = []  # type: List[User] # (3)[ea, ea, ea] (Users)
-        self.Gc = False
+        # self.Gc = False
         self.H = None  # type: GamePlay # ta, {Zb: -1, Yb: null, Ga: 0, Ac: 17329.216666498643, Cb: 4, …}
         self.U = None  # type: Field # h, Field, {C: Array(20), O: Array(14), ha: Array(6), kc: Array(2), K: Array(4), …}
-        self.Yb = None
+        # self.Yb = None
         self.Zb = -1
         self.fb = 14
-        self.hb = [] # (3)[null, ka, ka] TODO: da capire che cos'è
+        # self.hb = [] # (3)[null, ka, ka] TODO: da capire che cos'è
         self.xa = 0
 
 
-class FieldPhysics:
+cdef class FieldPhysics:
     """
     class Ea
     """
+    cdef public list C
+    cdef public list K
+    cdef public list O
+    cdef public list ha
+    cdef public int Zb
 
     def __init__(self) -> None:
         self.C = []  # (20)[z, z, z, z, z, z, z, z, z, z, z, z, z, z, z, z, z, z, z, z]
         self.K = []  # (7)[X, X, X, X, X, X, X]
         self.O = []  # (14)[D, D, D, D, D, D, D, D, D, D, D, D, D, D]
-        self.Yb = None
-        selfZb = -1
+        # self.Yb = None
+        self.Zb = -1
         self.ha = []  # (6)[I, I, ...]
 
-    def v(self, a):
+    cdef public void v(self, a):
         """
         // a == 1 sempre.  costante? velocità del mondo?
 
@@ -401,12 +518,11 @@ class FieldPhysics:
         :return:
         """
 
-        # b = 0
+        b = 0
         c = self.K
-        # while b < len(c):  # for (var b = 0, c = this.K; b < c.length;) {
-        for d in c:  # for (var b = 0, c = this.K; b < c.length;) {
-            # d = c[b]  # var d = c[b];
-            # b += 1  # ++b;
+        while b < len(c):  # for (var b = 0, c = this.K; b < c.length;) {
+            d = c[b]  # var d = c[b];
+            b += 1  # ++b;
             e = d.a  # var e = d.a // a: posizione
             f = d.a  # f = d.a // uguale
             g = d.M  # g = d.M; // M: velocità
@@ -484,7 +600,7 @@ class FieldPhysics:
                         h = h.y - k.y  # h = h.y - k.y,
                         k = g * g + h * h  # k = g * g + h * h,
                         if 0 < k and k <= c.la * c.la:  # 0 < k && k <= c.la * c.la
-                            k = math.sqrt(k) # var k = Math.sqrt(k)
+                            k = sqrt(k) # var k = Math.sqrt(k)
                             g = g / k  # , g = g / k
                             h = h / k  # , h = h / k
                             k = c.la - k  # , k = c.la - k
@@ -501,10 +617,30 @@ class FieldPhysics:
                                 f.x = l.x - g * k  # f.x = l.x - g * k,
                                 f.y = l.y - h * k  # f.y = l.y - h * k
 
-class GamePlay:
+cdef class GamePlay:
     """
     class ta
     """
+    cdef public float Ac
+    cdef public int Cb
+    cdef public int Ga
+    cdef public Team Jd
+    cdef public int Kb
+    cdef public Room Pa
+    cdef public Field U
+    cdef public int Zb
+    cdef public int ec
+    cdef public int fb
+    cdef public Vector kd
+    cdef public int pc
+    cdef public FieldPhysics wa
+    cdef public int xa
+    cdef public int zb
+    cdef public Team red_team_inst
+    cdef public Team blu_team_inst
+    cdef public Team spec_team_inst
+    cdef public int red_scored
+    cdef public int blue_scored
 
     def __init__(self) -> None:
         self.Ac = 17329.216666498643
@@ -514,7 +650,7 @@ class GamePlay:
         self.Kb = 0
         self.Pa = None  # type: Room # fa, {Zb: -1, Yb: null, U: h, xa: 0, fb: 14, …}
         self.U = None # type: Field # h, Field, {C: Array(20), O: Array(14), ha: Array(6), kc: Array(2), K: Array(4), …}
-        self.Yb = None
+        # self.Yb = None
         self.Zb = -1
         self.ec = 0
         self.fb = 14
@@ -531,7 +667,7 @@ class GamePlay:
         self.red_scored = False
         self.blue_scored = False
 
-    def step(self, a=1):
+    cpdef public void step(self, a:int):
         c = self.Pa.D
         b = self.wa.K[self.ec]
         d = 0
@@ -543,7 +679,7 @@ class GamePlay:
                 g = e.F.a  # , g = e.F.a
                 n = f.x - g.x  # , n = f.x - g.x
                 g = f.y - g.y  # , g = f.y - g.y
-                k = math.sqrt(n * n + g * g) - b.la - e.F.la  # , k = Math.sqrt(n * n + g * g) - b.la - e.F.la;
+                k = sqrt(n * n + g * g) - b.la - e.F.la  # , k = Math.sqrt(n * n + g * g) - b.la - e.F.la;
 
                 if (e.mb & 16) == 0:  # if ((e.mb & 16) == 0)
                     e.bc = 0  # e.bc = 0
@@ -552,7 +688,7 @@ class GamePlay:
                 if e.bc and k < 4:  # if (e.bc && 4 > k) {
                     if f.Kd != 0: # if (0 != f.Kd) {
                         # Entra qua quando la palla viene calciata
-                        k = math.sqrt(n * n + g * g)  # var k = Math.sqrt(n * n + g * g)
+                        k = sqrt(n * n + g * g)  # var k = Math.sqrt(n * n + g * g)
                         h = f.Kd  # , h = f.Kd
                         l = b.M  # , l = b.M
                         m = b.M  # , m = b.M
@@ -576,7 +712,7 @@ class GamePlay:
                 if 0 != (k & 4): n -= 1  # 0 != (k & 4) && --n;
                 if 0 != (k & 8): n += 1  # 0 != (k & 8) && ++n;
                 if n != 0 and g != 0:  # if(n != 0 && g != 0)
-                    k = math.sqrt(n * n + g * g)  # k = Math.sqrt(n * n + g * g);
+                    k = sqrt(n * n + g * g)  # k = Math.sqrt(n * n + g * g);
                     n /= k  # n /= k;
                     g /= k  # g /= k;
 
@@ -680,7 +816,8 @@ class GamePlay:
                 }
             }
             """
-        hello = 'cioa'
+        # hello = 'cioa'
+
     def Cl(self):
         """
         Cl: function () {
@@ -692,8 +829,8 @@ class GamePlay:
         """
         self.pc = 300
         self.zb = 3
-        if self.Pa.pi is not None:
-            self.Pa.pi(p.ba if self.Kb > self.Cb else p.ta)  # TODO p.ba, p.ta saranno le classi delle squadre Rossa e Blu, poco importante
+        # if self.Pa.pi is not None:
+        #     self.Pa.pi(p.ba if self.Kb > self.Cb else p.ta)  # TODO p.ba, p.ta saranno le classi delle squadre Rossa e Blu, poco importante
 
     def reset(self):
         create_start_conditions(
@@ -711,39 +848,6 @@ class GamePlay:
             commincia_rosso=True,
             game_play_instance=self
         )
-
-    def export_state(self):
-        return {
-            'posizione_palla': self.wa.K[0].a,
-            'velocita_palla': self.wa.K[0].M,
-            'posizione_blu': self.wa.K[6].M,
-            'velocita_blu': self.wa.K[6].a,
-            'input_blu': self.Pa.D[2].mb,
-            'posizione_rosso': self.wa.K[5].M,
-            'velocita_rosso': self.wa.K[5].a,
-            'input_rosso': self.Pa.D[1].mb,
-            'tempo_iniziale': self.Ac,
-            'punteggio_rosso': self.Kb,
-            'punteggio_blu': self.Cb,
-            'commincia_rosso': self.Jd.o == 'Red'
-        }
-
-    def import_state(self, state):
-        self.wa.K[0].a = state['posizione_palla']
-        self.wa.K[0].M = state['velocita_palla']
-        self.wa.K[6].M = state['posizione_blu']
-        self.wa.K[6].a = state['velocita_blu']
-        self.Pa.D[2].mb = state['input_blu']
-        self.wa.K[5].M = state['posizione_rosso']
-        self.wa.K[5].a = state['velocita_rosso']
-        self.Pa.D[1].mb = state['input_rosso']
-        self.Ac = state['tempo_iniziale']
-        self.Kb = state['punteggio_rosso']
-        self.Cb = state['punteggio_blu']
-        if state['commincia_rosso']:
-            self.Jd.o = self.red_team_inst
-        else:
-            self.Jd.o = self.blu_team_inst
 
 
 def create_start_conditions(
@@ -779,7 +883,7 @@ def create_start_conditions(
     palla.Ba = 0.99
     palla.M = velocita_palla
     palla.X = 16777215
-    palla.Yb = None
+    # palla.Yb = None
     palla.Zb = -1
     palla.a = posizione_palla
     palla.gj = 0
@@ -794,7 +898,7 @@ def create_start_conditions(
     palo1.Ba = 0.99
     palo1.M = Vector(0, 0)
     palo1.X = 13421823
-    palo1.Yb = None
+    # palo1.Yb = None
     palo1.Zb = -1
     palo1.a = Vector(370, -64)
     palo1.gj = 0
@@ -809,7 +913,7 @@ def create_start_conditions(
     palo2.Ba = 0.99
     palo2.M = Vector(0, 0)
     palo2.X = 13421823
-    palo2.Yb = None
+    # palo2.Yb = None
     palo2.Zb = -1
     palo2.a = Vector(370, 64)
     palo2.gj = 0
@@ -824,7 +928,7 @@ def create_start_conditions(
     palo3.Ba = 0.99
     palo3.M = Vector(0, 0)
     palo3.X = 13421823
-    palo3.Yb = None
+    # palo3.Yb = None
     palo3.Zb = -1
     palo3.a = Vector(-370, -64)
     palo3.gj = 0
@@ -839,7 +943,7 @@ def create_start_conditions(
     palo4.Ba = 0.99
     palo4.M = Vector(0, 0)
     palo4.X = 13421823
-    palo4.Yb = None
+    # palo4.Yb = None
     palo4.Zb = -1
     palo4.a = Vector(-370, 64)
     palo4.gj = 0
@@ -851,7 +955,7 @@ def create_start_conditions(
 
     spectators_team = Team()
     spectators_team.B = 0
-    spectators_team.El = {'Tc': 16777215, 'cb': [16777215]}  # ka
+    # spectators_team.El = {'Tc': 16777215, 'cb': [16777215]}  # ka
     spectators_team.P = 0
     spectators_team.Tf = spectators_team
     spectators_team.X = 16777215
@@ -866,8 +970,8 @@ def create_start_conditions(
     host_user.F = None
     host_user.T = 0
     host_user.bc = False
-    host_user.im = None
-    host_user.jb = None
+    # host_user.im = None
+    # host_user.jb = None
     host_user.mb = 0
     host_user.o = 'Host'
     host_user.ra = True
@@ -879,7 +983,7 @@ def create_start_conditions(
 
     red_team = Team()
     red_team.B = 2
-    red_team.El = {'Tc': 16777215, 'cb': [15035990]}  # ka
+    # red_team.El = {'Tc': 16777215, 'cb': [15035990]}  # ka
     red_team.P = 1
     red_team.Tf = None  # blue_team
     red_team.X = 15035990
@@ -893,7 +997,7 @@ def create_start_conditions(
     red_player_object.Ba = 0.96
     red_player_object.M = velocita_rosso
     red_player_object.X = 0
-    red_player_object.Yb = None
+    # red_player_object.Yb = None
     red_player_object.Zb = -1
     red_player_object.a = posizione_rosso
     red_player_object.gj = 0
@@ -909,8 +1013,8 @@ def create_start_conditions(
     red_player.F = red_player_object
     red_player.T = 2
     red_player.bc = 0
-    red_player.im = None
-    red_player.jb = None
+    # red_player.im = None
+    # red_player.jb = None
     red_player.mb = int(input_rosso)
     red_player.o = 'ciao2'
     red_player.ra = True
@@ -922,7 +1026,7 @@ def create_start_conditions(
 
     blue_team = Team()
     blue_team.B = 4
-    blue_team.El = {'Tc': 16777215, 'cb': [5671397]}  # ka
+    # blue_team.El = {'Tc': 16777215, 'cb': [5671397]}  # ka
     blue_team.P = 2
     blue_team.Tf = red_team
     blue_team.X = 5671397
@@ -936,7 +1040,7 @@ def create_start_conditions(
     blue_player_object.Ba = 0.96
     blue_player_object.M = velocita_blu
     blue_player_object.X = 0
-    blue_player_object.Yb = None
+    # blue_player_object.Yb = None
     blue_player_object.Zb = -1
     blue_player_object.a = posizione_blu
     blue_player_object.gj = 0
@@ -952,8 +1056,8 @@ def create_start_conditions(
     blue_player.F = blue_player_object
     blue_player.T = 1
     blue_player.bc = 0
-    blue_player.im = None
-    blue_player.jb = None
+    # blue_player.im = None
+    # blue_player.jb = None
     blue_player.mb = int(input_blu)
     blue_player.o = 'Ginger Burgess'
     blue_player.ra = False
@@ -981,7 +1085,7 @@ def create_start_conditions(
         mb(palo3.a, palo4.a, squadra=red_team),
     ]
     field.o = 'Classic'
-    field.oe = None  # TODO: da mettere ua
+    # field.oe = None  # TODO: da mettere ua
     field.qe = 0
     field.rf = True
     field.C = [
@@ -1083,7 +1187,7 @@ def create_start_conditions(
         blue_player_object,
     ]
     field_physics.O = field.O
-    field_physics.Yb = None
+    # field_physics.Yb = None
     field_physics.Zb = -1
     field_physics.ha = field.ha
     field.spec_team_inst = spectators_team
@@ -1098,7 +1202,7 @@ def create_start_conditions(
     game_play.Jd = red_team if commincia_rosso else blue_team
     game_play.Kb = punteggio_rosso
     game_play.U = field
-    game_play.Yb = None
+    # game_play.Yb = None
     game_play.Zb = -1
     game_play.ec = 0
     game_play.fb = 14
@@ -1119,17 +1223,17 @@ def create_start_conditions(
         red_player,
         blue_player
     ]
-    room.Gc = False
+    # room.Gc = False
     room.H = game_play
     room.U = field
-    room.Yb = None
+    # room.Yb = None
     room.Zb = -1
     room.fb = 14
-    room.hb = [
-        None,
-        {'Tc': 16777215, 'Xc': 0, 'cb': [15035990]},
-        {'Tc': 16777215, 'Xc': 0, 'cb': [5671397]},
-    ]  # TODO: da tradurre ka
+    # room.hb = [
+    #     None,
+    #     {'Tc': 16777215, 'Xc': 0, 'cb': [15035990]},
+    #     {'Tc': 16777215, 'Xc': 0, 'cb': [5671397]},
+    # ]  # TODO: da tradurre ka
     room.xa = 0
 
     game_play.Pa = room
