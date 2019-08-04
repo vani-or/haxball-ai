@@ -72,6 +72,9 @@ class Haxball(Env):
         else:
             self.gameplay = create_start_conditions()
 
+        self.last_red_obs_tick = 0
+        self.last_blue_obs_tick = 0
+
         self.reset()
 
     def prepare_input(self, action, red_team: bool):
@@ -107,7 +110,9 @@ class Haxball(Env):
 
     @classmethod
     def prodotto_scalare(cls, a, b):
-        return (a[0] * b[0] + a[1] * b[1]) / cls.lung(a) / cls.lung(b)
+        lung_a = max(1e-5, cls.lung(a))
+        lung_b = max(1e-5, cls.lung(b))
+        return (a[0] * b[0] + a[1] * b[1]) / lung_a / lung_b
 
     @classmethod
     def lung(cls, a):
@@ -190,15 +195,15 @@ class Haxball(Env):
             velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
             # if ps < 0:
             #     ps /= 2
-            reward += 50 * ps * velocita_palla
+            reward += 500 * ps * velocita_palla
             # print(50 * ps * velocita_palla)
 
         # reward += 50 * velocita_palla
 
         # Velocità troppo bassa (penalità)
-        # if not campo_bloccato:
-        #     velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
-        #     reward -= 2000 * max(0.0, 0.1 - velocita_palla)
+        if not campo_bloccato:
+            velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
+            reward -= 2000 * max(0.0, 0.1 - velocita_palla)
 
         # Penalità se il giocatore e' "davanti" alla palla
         # if player_pos_x < ball_pos_x:
@@ -226,12 +231,12 @@ class Haxball(Env):
                 goal_reward = +50_000
                 score = 1
             else:
-                goal_reward = -10_000
+                goal_reward = -5_000
                 score = 0
             done = True
         elif self.gameplay.blue_scored:
             if red_team:
-                goal_reward = -10_000
+                goal_reward = -5_000
                 score = 0
             else:
                 print('goal from blue')
@@ -240,6 +245,13 @@ class Haxball(Env):
             done = True
 
         reward += goal_reward
+
+        # if red_team:
+        #     tick_passed_from_last_obs = self._ticks - self.last_red_obs_tick
+        #     self.last_red_obs_tick = self._ticks
+        # else:
+        #     tick_passed_from_last_obs = self._ticks - self.last_blue_obs_tick
+        #     self.last_blue_obs_tick = self._ticks
 
         state = [
             player_pos_x,
@@ -256,6 +268,7 @@ class Haxball(Env):
             ball_vel_y,
             distanza_alla_palla,
             # self.max_ticks - self._ticks,
+            # tick_passed_from_last_obs,
             int(campo_bloccato)
         ]
 
@@ -268,7 +281,7 @@ class Haxball(Env):
                     print('draw')
             elif self._ticks >= self.max_ticks // 8:
                 if deve_cominciare:
-                    reward -= 50_000
+                    reward -= 5_000
                     score = 0
                     print('lost by doing nothing')
                     done = True
@@ -279,7 +292,7 @@ class Haxball(Env):
         if state_only:
             return state
 
-        return state, reward/1000 - 0.2, done, {'score': score}
+        return state, reward/1000, done, {'score': score}
 
     def step(self, action):
         # Invio degli input
@@ -303,15 +316,15 @@ class Haxball(Env):
         # Il tempo che corre
         # for i in range(3):
         #     self.gameplay.step(1)
-        self._ticks += 1
+        # self._ticks += 1
 
     def step_wait(self, red_team):
         return self.get_observation(red_team)
 
-    def step_physics(self):
-        for i in range(6):
+    def step_physics(self, virtual_steps=6):
+        for i in range(virtual_steps):
             self.gameplay.step(1)
-        self._ticks += 1
+        self._ticks += virtual_steps
 
     def step_two_agents(self, actions: list):
         # Invio degli input
@@ -335,6 +348,8 @@ class Haxball(Env):
     def reset(self):
         self.gameplay.reset()
         self._ticks = 0
+        self.last_red_obs_tick = 0
+        self.last_blue_obs_tick = 0
 
         obs = [self.get_observation(red_team, state_only=True) for red_team in (True, False)]
 

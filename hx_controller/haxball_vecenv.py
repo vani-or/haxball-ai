@@ -1,5 +1,6 @@
 import logging
 from copy import copy
+from typing import List
 
 from baselines.common.vec_env import VecEnv
 import numpy as np
@@ -189,18 +190,21 @@ class HaxballSubProcVecEnv(HaxballVecEnv):
     def __init__(self, num_fields, max_ticks=2400):
         self.num_fields = num_fields
         self.num_envs = num_fields * 2
+        self.max_ticks = max_ticks
 
-        self.connections = []
-        for i in range(num_fields):
+        self.connections = []  # type: List[Pipe]
+        self.processes = []  # type: List[Process]
+        for i in range(self.num_fields):
             parent_conn, child_conn = Pipe()
             p = Process(
                 target=env_worker,
                 daemon=True,
                 args=(child_conn, ),
-                kwargs=dict(max_ticks=max_ticks)
+                kwargs=dict(max_ticks=self.max_ticks)
             )
             p.start()
             self.connections.append(parent_conn)
+            self.processes.append(p)
 
         # self.connections[0].send(('get_spaces_spec', None))
         tmp_env = Haxball()
@@ -213,6 +217,27 @@ class HaxballSubProcVecEnv(HaxballVecEnv):
         self.action_space = action_space
         self.keys, shapes, dtypes = obs_space_info(self.observation_space)
         self.waiting = False
+
+    def set_num_fields(self, num_fields):
+        self.num_fields = max(1, num_fields)
+        self.num_envs = self.num_fields * 2
+
+        for process in self.processes:
+            process.terminate()
+
+        self.connections = []  # type: List[Pipe]
+        self.processes = []  # type: List[Process]
+        for i in range(self.num_fields):
+            parent_conn, child_conn = Pipe()
+            p = Process(
+                target=env_worker,
+                daemon=True,
+                args=(child_conn,),
+                kwargs=dict(max_ticks=self.max_ticks)
+            )
+            p.start()
+            self.connections.append(parent_conn)
+            self.processes.append(p)
 
     def step_async(self, actions):
         for remote, a1, a2 in zip(self.connections, actions[0::2], actions[1::2]):
@@ -288,10 +313,23 @@ def env_worker_multiple_envs(conn: Connection, **env_kwargs):
 
                 env = get_env(field_id)
 
+                # Le azioni non sono immediate
+                # steps_to_wait = max(1, np.random.poisson(lam=1))
+                env.step_physics(2)
+
                 env.step_async(a1, red_team=True)
+
+                # env.step_physics(1)
+
                 env.step_async(a2, red_team=False)
 
-                env.step_physics()
+                env.step_physics(2)
+
+                # Le misure di obs non sono immediate
+                # steps_to_wait = max(1, np.random.poisson(lam=2))
+                # steps_to_wait = 1
+                # steps_to_wait = max(1, np.random.poisson(lam=1))
+                # env.step_physics(steps_to_wait)
 
                 is_done = False
 
@@ -300,8 +338,13 @@ def env_worker_multiple_envs(conn: Connection, **env_kwargs):
                     obss.append(obs)
                     rews.append(rew)
                     dones.append(done)
+                    info['field_id'] = field_id
+                    info['players_i'] = field_id * 2 if red_team else field_id * 2 + 1
                     infos.append(info)
                     is_done |= done
+
+                    # if red_team:
+                    #     env.step_physics(1)
                 if is_done:
                     env.reset()
 
@@ -334,6 +377,7 @@ class HaxballProcPoolVecEnv(HaxballVecEnv):
         self.num_envs = num_fields * 2  # per 2 perché pre 2 giocatori su un singolo campo
         self.max_ticks = max_ticks
 
+        # self.n_processes = min(self.num_fields, cpu_count())
         self.n_processes = cpu_count()
         logging.debug('Starting processes pool with N=%s' % self.n_processes)
 

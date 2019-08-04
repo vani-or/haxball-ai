@@ -1,7 +1,11 @@
 import functools
+import math
+import random
+
 import tensorflow as tf
 from baselines.ppo2.model import Model
 from baselines.common.tf_util import get_session, save_variables, load_variables, initialize
+import numpy as np
 
 try:
     from baselines.common.mpi_adam_optimizer import MpiAdamOptimizer
@@ -142,26 +146,102 @@ class StaticModel:
 
     def step(self, obs, **kwargs):
         num = obs.shape[0]
-        actions = [self.default_action] * num
-        tmp_values = [1] * num
+        actions = np.zeros(shape=(num, )) + self.default_action
+        tmp_values = np.ones(shape=(num, ))
         tmp_states = None
-        tmp_neglogpacs = [1] * num
+        tmp_neglogpacs = np.ones(shape=(num, ))
         return actions, tmp_values, tmp_states, tmp_neglogpacs
 
     def value(self, obs, **kwargs):
         num = obs.shape[0]
-        return [1] * num
+        return np.ones(shape=(num, ))
 
     def train(self, lrnow, cliprangenow, obs, returns, masks, actions, values, neglogpacs):
         num = obs.shape[0]
-        return [0] * num
+        return np.zeros(shape=(num, ))
 
 
 class RandomModel(StaticModel):
     def step(self, obs, **kwargs):
         num = obs.shape[0]
         actions = [self.action_space.sample() for i in range(num)]
-        tmp_values = [1] * num
+        tmp_values = np.ones(shape=(num, ))
         tmp_states = None
-        tmp_neglogpacs = [1] * num
+        tmp_neglogpacs = np.ones(shape=(num, ))
         return actions, tmp_values, tmp_states, tmp_neglogpacs
+
+
+class PazzoModel(StaticModel):
+    def __init__(self, change_period=150, model_name=None, action_space=None) -> None:
+        super().__init__(default_action=0, model_name=model_name, action_space=action_space)
+        self.random_points = []
+        self.step_nums = []
+        self.change_period = change_period  # 10 secondi virtuali
+
+    def choose_random_point(self):
+        return (
+            random.randint(-405, 405),
+            random.randint(-185, 185),
+        )
+        # print(self.random_point)
+
+    def step(self, obs, **kwargs):
+        if obs.shape[0] != len(self.random_points):
+            self.random_points = [self.choose_random_point() for _ in range(obs.shape[0])]
+            self.step_nums = [0 for _ in range(obs.shape[0])]
+
+        actions = []
+        for i, ob in enumerate(obs):
+            self.step_nums[i] += 1
+
+            if self.step_nums[i] > self.change_period or \
+                    ('M' in kwargs and kwargs['M'][i]):  # M - dones
+                self.random_points[i] = self.choose_random_point()
+                self.step_nums[i] = 0
+
+            hor = 0
+            ver = 0
+            action = 0
+
+            if ob[8] == 0 and ob[9] == 0 and ob[13] == 0:
+                point = (random.randint(-150, 150), random.randint(-150, 150))
+            else:
+                point = self.random_points[i]
+
+            comp_x = point[0] - ob[0]
+            comp_y = point[1] - ob[1]
+            vers_denom = math.sqrt(comp_x ** 2 + comp_y ** 2)
+
+            if vers_denom > 40:
+                prob_x = abs(comp_x) / vers_denom
+                prob_y = abs(comp_y) / vers_denom
+
+                if random.random() < prob_x:
+                    hor = abs(comp_x) / comp_x
+                if random.random() < prob_y:
+                    ver = abs(comp_y) / comp_y
+
+            if hor > 0 and ver > 0:
+                action = 4
+            elif hor > 0 and ver < 0:
+                action = 2
+            elif hor < 0 and ver > 0:
+                action = 6
+            elif hor < 0 and ver < 0:
+                action = 8
+            elif hor > 0 and ver == 0:
+                action = 3
+            elif hor < 0 and ver == 0:
+                action = 7
+            elif hor == 0 and ver > 0:
+                action = 5
+            elif hor == 0 and ver < 0:
+                action = 1
+
+            actions.append(action)
+
+        num = obs.shape[0]
+        tmp_values = np.ones(shape=(num,))
+        tmp_states = None
+        tmp_neglogpacs = np.ones(shape=(num,))
+        return np.array(actions), tmp_values, tmp_states, tmp_neglogpacs

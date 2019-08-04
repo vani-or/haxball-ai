@@ -7,6 +7,7 @@ from pychrome.tab import Tab
 from config.config import settings
 from hx_controller import HXController
 from simulator import create_start_conditions
+import numpy as np
 
 
 class BrowserEnvironment(HXController):
@@ -112,8 +113,14 @@ class BrowserEnvironment(HXController):
             if pressed:
                 self.send_button(key, up=True)
 
+    get_info_times = []
+    press_buttons_times = []
+    get_info_counter = 0
+    press_buttons_counter = 0
+
     def step(self, action):
         # Capire quali bottoni da premere
+        st = time.time()
         keys_to_press = []
         if action in self.action_2_button:
             for key in self.action_2_button[action]:
@@ -132,7 +139,7 @@ class BrowserEnvironment(HXController):
         if self._buttons_state['space']:
             self.send_button('space', up=True)
 
-        # Lasciare tutti i bottoni premuti
+        # Lasciare tutti (tranne quei che dobbiamo premere) i bottoni premuti
         for key, pressed in self._buttons_state.items():
             if pressed and key not in keys_to_press:
                 self.send_button(key, up=True)
@@ -143,10 +150,24 @@ class BrowserEnvironment(HXController):
                 self.send_button(key, up=False)
 
         # Aspetto l'effeto dell'azione
-        time.sleep(settings['REWARD_WAIT_TIME'])
+        # time.sleep(settings['REWARD_WAIT_TIME'])
+        self.press_buttons_times.append(time.time() - st)
+        self.press_buttons_counter += 1
+        if self.press_buttons_counter % 10000 == 0:
+            print('press_buttons_times - mean', np.mean(self.press_buttons_times))
+            print('press_buttons_times - std', np.std(self.press_buttons_times))
+            self.press_buttons_times = []
 
         # Ottengo l'info del gioco dal JavaScript
+        st = time.time()
         game_info = self.get_game_info()
+        self.get_info_times.append(time.time() - st)
+        self.get_info_counter += 1
+        if self.get_info_counter % 10000 == 0:
+            print('get_info_times - mean', np.mean(self.get_info_times))
+            print('get_info_times - std', np.std(self.get_info_times))
+            self.get_info_times = []
+
         if not game_info or not game_info['player'] or not game_info['opponent']:
             return
 

@@ -39,7 +39,7 @@ def run_host(token: str, room_queue: Queue):
 
 
 def inject(js):
-    with open('js/game.js', 'r') as fp:
+    with open('js/game2.js', 'r') as fp:
         return fp.read()
 
 
@@ -60,10 +60,23 @@ def requestIntercepted(tab):
 
 
 def run_agent(room_url: str, players_queue: Queue):
-    username = names.get_first_name(gender=random.choice(['male', 'female'])) + '_'
+    username = names.get_first_name(gender=random.choice(['male', 'female']))
+    if random.random() < 0.5:
+        if random.random() < 0.25:
+            username += random.choice('_.')
+        if random.random() < 0.25:
+            username += str(random.randint(1989, 2020))
+        else:
+            username += str(random.randint(0, 100))
+    if random.random() < 0.5:
+        username = username.lower()
+    if random.random() < 0.1:
+        username = username.replace('o', '0')
+    if random.random() < 0.1:
+        username = username.replace('i', '1')
 
     print('Creating player %s...' % username)
-    br = Chrome(port=get_next_port_number())
+    br = Chrome(port=get_next_port_number(), headless=True)
     br.launch()
     tab = br.get_chrome_tab('tab')
     tab.Network.enable()

@@ -8,7 +8,7 @@ from baselines.common import set_global_seeds, explained_variance
 
 
 nenvs = 100
-nsteps = 10
+nsteps = 30
 gamma = 0.99
 # load_path = 'ciao.h5'
 save_interval = 100
@@ -16,7 +16,7 @@ load_path = None
 # load_path = 'ppo2.h5'
 log_interval = 100
 total_timesteps = int(10e7)
-max_ticks = int(60*2*(1/0.1))
+max_ticks = int(60*2*(1/0.0166))
 # env = HaxballSubProcVecEnv(num_fields=nenvs, max_ticks=max_ticks)
 env = HaxballProcPoolVecEnv(num_fields=nenvs, max_ticks=max_ticks)
 # policy = build_policy(env=env, policy_network='mlp', num_layers=4, num_hidden=256)

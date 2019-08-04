@@ -25,13 +25,16 @@ function getHxInfo(player_name)
         window.subwindow = document.getElementsByTagName("iframe")[0].contentWindow;
     }
     // var L = subwindow.tutti_i_dati.L;
-    var L = subwindow._this.Pa; // i dati real-time
+    var L = subwindow._this.Ka; // i dati real-time
+    // Pa -> Ka
     var player_index = -1;
     var opponent_index = -1;
 
-    for (var i = L.D.length-1; i >= 0; i--)
+    // L.D -> L.I
+    for (var i = L.I.length-1; i >= 0; i--)
     {
-        if(L.D[i].o === player_name)
+        // L.D[i].o -> L.I[i].w
+        if(L.I[i].w === player_name)
         {
             player_index = i;
             break;
@@ -41,18 +44,19 @@ function getHxInfo(player_name)
     var players_data = {};
     if(player_index >= 0)
     {
-        if (L.D[player_index].F)
+        // L.D[i].F -> L.I[i].H
+        if (L.I[player_index].H)
         {
             players_data = {
-                team: L.D[player_index].$.o,
-                position: L.D[player_index].F.a,
-                velocity: L.D[player_index].F.M,
+                team: L.I[player_index].ca.w, // L.D[player_index].$.o -> L.I[i].ca.w
+                position: L.I[player_index].H.a, // L.D[player_index].F.M -> L.I[i].H.a
+                velocity: L.I[player_index].H.D, // L.D[player_index].F.M -> L.I[i].H.D
             };
         }
 
-        for (var i = L.D.length - 1; i >= 0; i--)
+        for (var i = L.I.length - 1; i >= 0; i--)
         {
-            if (L.D[i].o !== player_name && L.D[i].$.o !== "Spectators" && L.D[i].$.o !== L.D[player_index].$.o)
+            if (L.I[i].w !== player_name && L.I[i].ca.w !== "Spectators" && L.I[i].ca.w !== L.I[player_index].ca.w)
             {
                 opponent_index = i;
                 break;
@@ -61,12 +65,12 @@ function getHxInfo(player_name)
     }
 
     var opponents_data = {};
-    if(opponent_index >= 0 && L.D[opponent_index].F)
+    if(opponent_index >= 0 && L.I[opponent_index].H)
     {
         opponents_data = {
-            team: L.D[opponent_index].$.o,
-            position: L.D[opponent_index].F.a,
-            velocity: L.D[opponent_index].F.M,
+            team: L.I[opponent_index].ca.w,
+            position: L.I[opponent_index].H.a,
+            velocity: L.I[opponent_index].H.D,
         };
     }
 
@@ -74,20 +78,20 @@ function getHxInfo(player_name)
         player: players_data,
         opponent: opponents_data,
         ball: {
-            position: L.H.wa.K[0].a,
-            velocity: L.H.wa.K[0].M
+            position: L.K.ta.F[0].a, // L.H.wa.K[0].a -> L.K.ta.F[0].a
+            velocity: L.K.ta.F[0].D  // L.H.wa.K[0].M -> L.K.ta.F[0].D
         },
         score: [
-            L.H.Kb,
-            L.H.Cb
+            L.K.Jb, // L.H.Kb -> L.K.Jb
+            L.K.Pb  // L.H.Kb -> L.K.Pb
         ],
         field_size: [
-            L.H.U.Ed,
-            L.H.U.Dd,
+            L.K.S.Sd,  // L.H.U.Ed -> L.K.S.Sd
+            L.K.S.Rd,  // L.H.U.Ed -> L.K.S.Rd
         ],
         init: {
-            team: L.H.Jd.o,
-            started: L.H.zb
+            team: L.K.Zd.w,  // L.H.Jd.o -> L.K.Zd.w
+            started: L.K.Ab  // L.H.zb -> L.K.Ab
         }
     };
 }

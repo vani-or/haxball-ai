@@ -19,7 +19,7 @@ from baselines.common.vec_env.test_vec_env import SimpleEnv
 from baselines.run import build_env
 
 from hx_controller.haxball_gym import Haxball
-from hx_controller.haxball_vecenv import HaxballVecEnv, HaxballSubProcVecEnv
+from hx_controller.haxball_vecenv import HaxballVecEnv, HaxballSubProcVecEnv, HaxballProcPoolVecEnv
 from hx_controller.openai_model_torneo import A2CModel
 from simulator import create_start_conditions, Vector
 from simulator.simulator.cenv import Vector as CVector, create_start_conditions as Ccreate_start_conditions
@@ -27,6 +27,63 @@ import numpy as np
 from collections import deque
 
 from simulator.visualizer import draw_frame
+from torneo.models import StaticModel, RandomModel, PazzoModel
+
+
+class DelayedModel:
+    def __init__(self, env: Haxball, model: A2CModel, play_red: bool) -> None:
+        self.state = 0
+        self.env = env
+        self.model = model
+        self.play_red = play_red
+        self.wait_time = 2
+
+    def gameplay_tick(self):
+        if self.state == 0:
+            # Prendiamo obs
+            self.obs, self.rew, self.done, self.info = self.env.step_wait(red_team=not play_red)
+
+            # print(obs)
+            reward = self.rew
+            if self.done:
+                env.reset()
+
+            self.state = 2
+            self.wait_time = 0
+
+        elif self.state == 1:
+            # Aspettiamo un po'
+            if self.wait_time == 0:
+                self.state = 2
+            self.wait_time -= 1
+
+        elif self.state == 2:
+            # Facciamo una predizione
+            self.actions, self.rew, _, _ = self.model.step(np.array([self.obs]), M=[self.done], S=None)
+            self.state = 4
+            self.wait_time = 0
+
+        elif self.state == 3:
+            # Aspettiamo un po'
+            if self.wait_time == 0:
+                self.state = 4
+            self.wait_time -= 1
+
+        elif self.state == 4:
+            ret = float(self.rew[0])
+            # actions, rew, _, _ = model.step(obs, S=None, M=[0])
+            action = self.actions[0]
+
+            self.env.step_async(action, red_team=not self.play_red)
+            self.state = 0
+            self.wait_time = 0
+
+        elif self.state == 5:
+            # Aspettiamo un po'
+            if self.wait_time == 0:
+                self.state = 0
+            self.wait_time -= 1
+
 
 if __name__ == '__main__':
     args_namespace = Namespace(
@@ -50,23 +107,30 @@ if __name__ == '__main__':
     total_timesteps = int(15e7)
     log_interval = 100
     load_path = None
+    # load_path = 'ppo2_best_so_far2.h5'
     load_path = 'ppo2.h5'
-    # load_path = 'ppo2.h5'
+    # load_path = 'models10/ppo_model_2.h5'
     # model_i = 3
     model_i = ''
     # load_path = 'models/%s.h5' % model_i
 
-    max_ticks = int(60*2*(1/0.1))
-    env = HaxballSubProcVecEnv(num_fields=nenvs, max_ticks=max_ticks)
+    max_ticks = int(60*3*(1/0.016))
+    env = HaxballProcPoolVecEnv(num_fields=nenvs, max_ticks=max_ticks)
     policy = build_policy(env=env, policy_network='mlp', num_layers=4, num_hidden=256)
     # policy = build_policy(env=env, policy_network='lstm', nlstm=512)  # num_layers=4, num_hidden=256)
 
-    model = A2CModel(policy, model_name='ppo2_model', env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps, lr=7e-4)# 0.005) #, vf_coef=0.0)
+    model = A2CModel(policy, model_name='ppo2_model', env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps, lr=7e-4)  # 0.005) #, vf_coef=0.0)
+    if load_path is not None and os.path.exists(load_path):
+        model.load(load_path)
+    # model = StaticModel()
+    # model = RandomModel(action_space=env.action_space)
+    # model = PazzoModel(action_space=env.action_space)
+    # model = StaticModel(default_action=7, action_space=env.action_space)
+    # model = StaticModel(action_space=env.action_space)
     # nbatch = 100 * 12
     # nbatch_train = nbatch // 4
     # model = PPOModel(policy=policy, nsteps=12, ent_coef=0.05, ob_space=env.observation_space, ac_space=env.action_space, nbatch_act=100, nbatch_train=nbatch_train, vf_coef=0.5, max_grad_norm=0.5)# 0.005) #, vf_coef=0.0)
-    if load_path is not None and os.path.exists(load_path):
-        model.load(load_path)
+
 
     size = width, height = 900, 520
     center = (width // 2, height // 2 + 30)
@@ -93,16 +157,18 @@ if __name__ == '__main__':
     env = Haxball(gameplay=gameplay, max_ticks=max_ticks*2)
     obs = env.reset()
     action = 0
+    play_red = 1
+
+    dm = DelayedModel(env, model, play_red)
 
     blue_unpressed = True
     red_unpressed = True
-
-    play_red = 0
 
     D_i = 1 if play_red else 2
     i = 0
     reward = None
     ret = None
+    next_action = 0
     while True:
         i += 1
         for event in pygame.event.get():
@@ -130,20 +196,7 @@ if __name__ == '__main__':
 
         # a1, a2 = data
         # env.step_async(a1, red_team=True)
-        if i % 3 == 0:
-
-            #
-            # env.step_physics()
-            #
-            obs, rew, done, info = env.step_wait(red_team=not play_red)
-            reward = rew
-            if done:
-                env.reset()
-            actions, rew, _, _ = model.step(obs)
-            ret = float(rew[0])
-            # actions, rew, _, _ = model.step(obs, S=None, M=[0])
-            action = actions[0]
-            env.step_async(action, red_team=not play_red)
+        dm.gameplay_tick()
 
         # obs = env.get_observation(action)
         # actions = model.step(obs)

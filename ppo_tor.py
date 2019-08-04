@@ -1,10 +1,11 @@
+import pickle
 import time
 from typing import Optional
 
 import numpy as np
 from collections import deque
-from hx_controller.haxball_vecenv import HaxballProcPoolVecEnv
-from torneo.models import PPOModel, StaticModel, RandomModel
+from hx_controller.haxball_vecenv import HaxballProcPoolVecEnv, HaxballSubProcVecEnv
+from torneo.models import PPOModel, StaticModel, RandomModel, PazzoModel
 from torneo.runner import TorneoRunner
 from torneo.utils import save_model, sf01, load_model, load_variables_from_another_model
 from baselines import logger
@@ -23,27 +24,30 @@ if __name__ == '__main__':
     nsteps = 30
     gamma = 0.99
     lam = 0.95
-    nminibatches = 1  # 4
+    nminibatches = 4  # 4
     noptepochs = 4
     ent_coef = 0.0
-    lr = 3e-4,
+    lr = 3e-4 / 10
+    cliprange = 0.2
     vf_coef = 0.5
     max_grad_norm = 0.5
-    models_path = 'models3/'
+    models_path = 'models11/'
     os.makedirs(models_path, exist_ok=True)
 
     # load_path = 'ciao.h5'
-    save_interval = 20
+    save_interval = 25
     load_path = None
-    log_interval = 20
-    new_player_introduce_interval = 200
+    log_interval = 25
+    new_player_introduce_interval = 1000
     total_timesteps = int(10e7)
-    max_ticks = int(60 * 2 * (1 / 0.1))
+    max_ticks = int(60 * 3 * (1 / 0.0166))
     env = HaxballProcPoolVecEnv(num_fields=nenvs//2, max_ticks=max_ticks)
+    # env = HaxballSubProcVecEnv(num_fields=nenvs//2, max_ticks=max_ticks)
 
     runner = TorneoRunner(env=env, nsteps=nsteps, gamma=gamma, lam=lam, nminibatches=nminibatches)
-
-    policy = build_policy(env, 'mlp', num_layers=4, num_hidden=256)
+    if os.path.exists(models_path + '/results.pkl'):
+        with open(models_path + '/results.pkl', 'rb') as fp:
+            runner.results = pickle.load(fp)
 
     n_players = 2
     nenvs = 2 * n_players * (n_players - 1)
@@ -53,8 +57,11 @@ if __name__ == '__main__':
     nbatch_train = nbatch // nminibatches
     train_batches_num = nsteps // nminibatches
 
+    policy = build_policy(env, 'mlp', num_layers=4, num_hidden=256)
+
     def ppo_model_creator(model_name: str, from_model: Optional[PPOModel]=None, trainable=True) -> PPOModel:
         print('Creating model %s...' % model_name)
+
         model = PPOModel(
             policy=policy,
             ob_space=ob_space,
@@ -73,6 +80,36 @@ if __name__ == '__main__':
             load_variables_from_another_model(model, from_model)
 
         return model
+
+    perfect_model = PPOModel(
+            policy=policy,
+            ob_space=ob_space,
+            ac_space=ac_space,
+            nbatch_act=nenvs,
+            nbatch_train=nbatch_train,
+            nsteps=nsteps,
+            ent_coef=ent_coef,
+            vf_coef=vf_coef,
+            max_grad_norm=max_grad_norm,
+            model_name='ppo2_model',
+            trainable=True
+        )
+    perfect_model.load('ppo2_base_delayed.h5')
+
+    # corridori_model = PPOModel(
+    #     policy=policy,
+    #     ob_space=ob_space,
+    #     ac_space=ac_space,
+    #     nbatch_act=nenvs,
+    #     nbatch_train=nbatch_train,
+    #     nsteps=nsteps,
+    #     ent_coef=ent_coef,
+    #     vf_coef=vf_coef,
+    #     max_grad_norm=max_grad_norm,
+    #     model_name='ppo2_model',
+    #     trainable=False
+    # )
+    # corridori_model.load('ppo2_corridori.h5')
 
     min_trainable_players = 10
 
@@ -96,14 +133,15 @@ if __name__ == '__main__':
         if trainable:
             min_trainable_players -= 1
 
+    print('modelli da creare: %s' % min_trainable_players)
     for j in range(min_trainable_players):
         i = len(runner.models)
 
         model_name = 'ppo_model_' + str(i)
         model = ppo_model_creator(model_name)
+        load_variables_from_another_model(model, perfect_model)
         fn = models_path + model_name + '.h5'
         if os.path.exists(fn):
-            # model.load(fn)
             load_model(fn, model)
         fn = models_path + model_name + '.rating.txt'
         rating = 1200
@@ -112,6 +150,21 @@ if __name__ == '__main__':
                 line = fp.read().strip()
                 rating = float(line)
         runner.add_model(model, rating=rating)
+
+    # model_name = 'ppo_corridori'
+    # model = ppo_model_creator(model_name)
+    # load_variables_from_another_model(model, corridori_model)
+    # fn = models_path + model_name + '.h5'
+    # if os.path.exists(fn):
+    #     # model.load(fn)
+    #     load_model(fn, model)
+    # fn = models_path + model_name + '.rating.txt'
+    # rating = 1200
+    # if os.path.exists(fn):
+    #     with open(fn, 'r') as fp:
+    #         line = fp.read().strip()
+    #         rating = float(line)
+    # runner.add_model(model, rating=rating)
 
     model_name = 'static'
     static_model = StaticModel(default_action=0, model_name=model_name)
@@ -140,6 +193,16 @@ if __name__ == '__main__':
             rating = float(fp.read())
     runner.add_model(random_model, rating=rating)
 
+    for i in range(5):
+        model_name = 'pazzo_' + str(i)
+        pazzo_model = PazzoModel(change_period=150 + 10*i, model_name=model_name, action_space=ac_space)
+        fn = models_path + model_name + '.rating.txt'
+        rating = 1200
+        if os.path.exists(fn):
+            with open(fn, 'r') as fp:
+                rating = float(fp.read())
+        runner.add_model(pazzo_model, rating=rating)
+
     ############### RUNNER #####################
     # Start total timer
     tfirststart = time.perf_counter()
@@ -157,8 +220,14 @@ if __name__ == '__main__':
     # Avoid division error when calculate the mean (in our case if epinfo is empty returns np.nan, not return an error)
     def safemean(xs):
         return np.nan if len(xs) == 0 else np.mean(xs)
-    cliprange = constfn(0.2)
-    lr = constfn(lr)
+    if isinstance(lr, float):
+        lr = constfn(lr)
+    else:
+        assert callable(lr)
+    if isinstance(cliprange, float):
+        cliprange = constfn(cliprange)
+    else:
+        assert callable(cliprange)
 
     eval_env = None
     epinfobuf = deque(maxlen=100)
@@ -166,12 +235,13 @@ if __name__ == '__main__':
         eval_epinfobuf = deque(maxlen=100)
 
     nupdates = total_timesteps // nbatch // runner.m
-    nupdates = 16000
+    nupdates = 20000
     print('nupdates: %s' % nupdates)
 
     start_update = 1
-    with open(models_path + '/update.txt', 'r') as fp:
-        start_update = int(fp.read())
+    if os.path.exists(models_path + '/update.txt'):
+        with open(models_path + '/update.txt', 'r') as fp:
+            start_update = int(fp.read())
     print('start_update: %s' % start_update)
 
     for update in range(start_update, nupdates + 1):
@@ -222,7 +292,7 @@ if __name__ == '__main__':
             logger.logkv("ELO top 4: %s" % runner.models[positions[3]].model_name, str(round(runner.ratings[positions[3]], 1)))
             logger.logkv("ELO worst: %s" % runner.models[positions[-1]].model_name, str(round(runner.ratings[positions[-1]], 1)))
 
-            if update % new_player_introduce_interval == 0 and update > 0:
+            if update % new_player_introduce_interval == 0 and update > 0 or update == 1:
                 i = 0
                 while i < runner.m:
                     best_model = runner.models[positions[i]]
@@ -265,6 +335,8 @@ if __name__ == '__main__':
             print('Saving...')
             with open(models_path + '/update.txt', 'w') as fp:
                 fp.write(str(update))
+            with open(models_path + '/results.pkl', 'wb') as fp:
+                pickle.dump(runner.results, fp)
             for i, model in enumerate(runner.models):
                 if hasattr(model, 'save') and callable(model.save):
                     fn = models_path + model.model_name + '.h5'

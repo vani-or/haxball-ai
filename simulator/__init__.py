@@ -363,6 +363,7 @@ class Room:
         self.Gc = False
         self.H = None  # type: GamePlay # ta, {Zb: -1, Yb: null, Ga: 0, Ac: 17329.216666498643, Cb: 4, …}
         self.U = None  # type: Field # h, Field, {C: Array(20), O: Array(14), ha: Array(6), kc: Array(2), K: Array(4), …}
+        # TODO: è diventato .S
         self.Yb = None
         self.Zb = -1
         self.fb = 14
@@ -968,10 +969,14 @@ def create_start_conditions(
     field.bh = 0
     field.fc = 7441498
     field.ha = [
-        I(32, -200, -1, 0, Vector(x=0, y=1)),
-        I(32, -200, -1, 0, Vector(x=0, y=-1)),
-        I(32, -420, -1, 0, Vector(x=1, y=0)),
-        I(32, -420, -1, 0, Vector(x=-1, y=0)),
+        # I(32, -200, -1, 0, Vector(x=0, y=1)),
+        I(32, -200, 63, 0, Vector(x=0, y=1)),
+        # I(32, -200, -1, 0, Vector(x=0, y=-1)),
+        I(32, -200, 63, 0, Vector(x=0, y=-1)),
+        # I(32, -420, -1, 0, Vector(x=1, y=0)),
+        I(32, -420, 63, 0, Vector(x=1, y=0)),
+        # I(32, -420, -1, 0, Vector(x=-1, y=0)),
+        I(32, -420, 63, 0, Vector(x=-1, y=0)),
         I(32, -170, 1, 1, Vector(x=0, y=1)),
         I(32, -170, 1, 1, Vector(x=0, y=-1)),
     ]

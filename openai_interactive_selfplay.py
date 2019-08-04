@@ -19,7 +19,7 @@ from baselines.common.vec_env.test_vec_env import SimpleEnv
 from baselines.run import build_env
 
 from hx_controller.haxball_gym import Haxball
-from hx_controller.haxball_vecenv import HaxballVecEnv, HaxballSubProcVecEnv
+from hx_controller.haxball_vecenv import HaxballVecEnv, HaxballSubProcVecEnv, HaxballProcPoolVecEnv
 from hx_controller.openai_model_torneo import A2CModel
 from simulator import create_start_conditions, Vector
 import numpy as np
@@ -50,12 +50,14 @@ if __name__ == '__main__':
     log_interval = 100
     load_path = None
     load_path = 'ppo2.h5'
+    # load_path = 'models8/ppo_model_1.h5'
     # model_i = 3
     model_i = ''
     # load_path = 'models/%s.h5' % model_i
 
-    max_ticks = int(60*2*(1/0.1))
-    env = HaxballSubProcVecEnv(num_fields=nenvs, max_ticks=max_ticks)
+    max_ticks = int(60*2*(1/0.016))
+    env = HaxballProcPoolVecEnv(num_fields=nenvs, max_ticks=max_ticks)
+    # env = HaxballSubProcVecEnv(num_fields=nenvs, max_ticks=max_ticks)
     policy = build_policy(env=env, policy_network='mlp', num_layers=4, num_hidden=256)
     # policy = build_policy(env=env, policy_network='lstm')
 
