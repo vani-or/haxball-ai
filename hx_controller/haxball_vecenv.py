@@ -61,7 +61,16 @@ class HaxballVecEnv(VecEnv):
         # return dict_to_obs(copy_obs_dict(self.buf_obs))
         return self.buf_obs
 
-    def step_async(self, actions):
+    def step(self, actions, *args, **kwargs):
+        """
+        Step the environments synchronously.
+
+        This is available for backwards compatibility.
+        """
+        self.step_async(actions, *args, **kwargs)
+        return self.step_wait()
+
+    def step_async(self, actions, *args, **kwargs):
         for env, a1, a2 in zip(self.envs, actions[0::2], actions[1::2]):
             env.step_async(a1, red_team=True)
             env.step_async(a2, red_team=False)
@@ -239,7 +248,7 @@ class HaxballSubProcVecEnv(HaxballVecEnv):
             self.connections.append(parent_conn)
             self.processes.append(p)
 
-    def step_async(self, actions):
+    def step_async(self, actions, *args, **kwargs):
         for remote, a1, a2 in zip(self.connections, actions[0::2], actions[1::2]):
             remote.send(('step', (a1, a2)))
         self.waiting = True
@@ -307,6 +316,8 @@ def env_worker_multiple_envs(conn: Connection, **env_kwargs):
                 field_id = field_ids[i]
                 a1 = a1s[i]
                 a2 = a2s[i]
+                # rf1 = rf1s[i]
+                # rf2 = rf2s[i]
 
                 players_i.append(field_id * 2)
                 players_i.append(field_id * 2 + 1)
@@ -315,7 +326,7 @@ def env_worker_multiple_envs(conn: Connection, **env_kwargs):
 
                 # Le azioni non sono immediate
                 # steps_to_wait = max(1, np.random.poisson(lam=1))
-                env.step_physics(2)
+                env.step_physics(3)
 
                 env.step_async(a1, red_team=True)
 
@@ -323,7 +334,7 @@ def env_worker_multiple_envs(conn: Connection, **env_kwargs):
 
                 env.step_async(a2, red_team=False)
 
-                env.step_physics(2)
+                env.step_physics(3)
 
                 # Le misure di obs non sono immediate
                 # steps_to_wait = max(1, np.random.poisson(lam=2))
@@ -379,6 +390,7 @@ class HaxballProcPoolVecEnv(HaxballVecEnv):
 
         # self.n_processes = min(self.num_fields, cpu_count())
         self.n_processes = cpu_count()
+        self.n_active_connections = max(self.num_fields, self.n_processes)
         logging.debug('Starting processes pool with N=%s' % self.n_processes)
 
         self.connections = []
@@ -404,12 +416,15 @@ class HaxballProcPoolVecEnv(HaxballVecEnv):
     def set_num_fields(self, num_fields):
         self.num_fields = max(1, num_fields)
         self.num_envs = self.num_fields * 2
+        self.n_active_connections = min(self.num_fields, self.n_processes)
 
-    def step_async(self, actions):
-        inputs = {i: [] for i in range(self.n_processes)}
-
+    def step_async(self, actions, *args, **kwargs):
+        inputs = {i: [] for i in range(self.n_active_connections)}
+        # if 'reward_functions' not in kwargs:
+        #     kwargs['reward_functions'] = [None] * len(actions)
+        # assert len(actions) == 2*self.num_fields
         for field_id, a1, a2 in zip(range(self.num_fields), actions[0::2], actions[1::2]):
-            i_process = field_id % self.n_processes
+            i_process = field_id % self.n_active_connections
             inputs[i_process].append((field_id, a1, a2))
             # remote = self.connections[i_process]
             # remote.send(('step', (field_id, a1, a2)))
@@ -425,7 +440,8 @@ class HaxballProcPoolVecEnv(HaxballVecEnv):
         infos = np.ndarray(shape=(2 * self.num_fields, ), dtype=object)
         # players = np.ndarray(shape=(2 * self.num_fields, ), dtype=object)
 
-        for remote in self.connections:
+        for i in range(self.n_active_connections):
+            remote = self.connections[i]
             result = remote.recv()
             field_ids = result[0]
             players_is = result[1]

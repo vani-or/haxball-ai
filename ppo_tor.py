@@ -4,6 +4,8 @@ from typing import Optional
 
 import numpy as np
 from collections import deque
+
+from hx_controller.haxball_gym import Haxball
 from hx_controller.haxball_vecenv import HaxballProcPoolVecEnv, HaxballSubProcVecEnv
 from torneo.models import PPOModel, StaticModel, RandomModel, PazzoModel
 from torneo.runner import TorneoRunner
@@ -21,17 +23,17 @@ if __name__ == '__main__':
     n_players = 1
     nenvs = 2
 
-    nsteps = 30
+    nsteps = 75
     gamma = 0.99
     lam = 0.95
     nminibatches = 4  # 4
     noptepochs = 4
     ent_coef = 0.0
-    lr = 3e-4 / 10
+    lr = 3e-4
     cliprange = 0.2
     vf_coef = 0.5
     max_grad_norm = 0.5
-    models_path = 'models11/'
+    models_path = 'models14/'
     os.makedirs(models_path, exist_ok=True)
 
     # load_path = 'ciao.h5'
@@ -39,6 +41,7 @@ if __name__ == '__main__':
     load_path = None
     log_interval = 25
     new_player_introduce_interval = 1000
+    replace_worst_interval = 200
     total_timesteps = int(10e7)
     max_ticks = int(60 * 3 * (1 / 0.0166))
     env = HaxballProcPoolVecEnv(num_fields=nenvs//2, max_ticks=max_ticks)
@@ -112,12 +115,13 @@ if __name__ == '__main__':
     # corridori_model.load('ppo2_corridori.h5')
 
     min_trainable_players = 10
+    min_baseline_players = 0
 
     for fn in os.listdir(models_path):
         if not fn.endswith('.h5'):
             continue
         model_name = fn.replace('.h5', '')
-        trainable = '_epoch_' not in fn
+        trainable = '_epoch_' not in fn and 'baseline' not in fn
         model = ppo_model_creator(model_name, trainable=trainable)
         load_model(models_path + '/' + fn, model)
 
@@ -128,10 +132,18 @@ if __name__ == '__main__':
                 line = fp.read().strip()
                 rating = float(line)
 
+        model.reward_function = None
+        rf_path = models_path + model_name + '.reward_function.pkl'
+        if os.path.exists(rf_path):
+            with open(rf_path, 'rb') as fp:
+                model.reward_function = pickle.load(fp)
+
         runner.add_model(model, rating=rating)
 
         if trainable:
             min_trainable_players -= 1
+        if 'baseline' in fn:
+            min_baseline_players -= 1
 
     print('modelli da creare: %s' % min_trainable_players)
     for j in range(min_trainable_players):
@@ -149,6 +161,36 @@ if __name__ == '__main__':
             with open(fn, 'r') as fp:
                 line = fp.read().strip()
                 rating = float(line)
+        model.reward_function = None
+        # model.reward_function = Haxball.create_random_reward_function()
+        rf_path = models_path + model_name + '.reward_function.pkl'
+        if os.path.exists(rf_path):
+            with open(rf_path, 'rb') as fp:
+                model.reward_function = pickle.load(fp)
+        runner.add_model(model, rating=rating)
+
+    print('baseline da creare: %s' % min_baseline_players)
+    for j in range(min_baseline_players):
+        i = len(runner.models)
+
+        model_name = 'ppo_model_' + str(i) + '_baseline'
+        model = ppo_model_creator(model_name, trainable=False)
+        load_variables_from_another_model(model, perfect_model)
+        fn = models_path + model_name + '.h5'
+        if os.path.exists(fn):
+            load_model(fn, model)
+        fn = models_path + model_name + '.rating.txt'
+        rating = 1200
+        if os.path.exists(fn):
+            with open(fn, 'r') as fp:
+                line = fp.read().strip()
+                rating = float(line)
+        model.reward_function = None
+        # model.reward_function = Haxball.create_random_reward_function()
+        rf_path = models_path + model_name + '.reward_function.pkl'
+        if os.path.exists(rf_path):
+            with open(rf_path, 'rb') as fp:
+                model.reward_function = pickle.load(fp)
         runner.add_model(model, rating=rating)
 
     # model_name = 'ppo_corridori'
@@ -193,7 +235,7 @@ if __name__ == '__main__':
             rating = float(fp.read())
     runner.add_model(random_model, rating=rating)
 
-    for i in range(5):
+    for i in range(10):
         model_name = 'pazzo_' + str(i)
         pazzo_model = PazzoModel(change_period=150 + 10*i, model_name=model_name, action_space=ac_space)
         fn = models_path + model_name + '.rating.txt'
@@ -246,6 +288,7 @@ if __name__ == '__main__':
 
     for update in range(start_update, nupdates + 1):
         assert nbatch % nminibatches == 0
+        print('yellow, update ' + str(update))
         # Start timer
         tstart = time.perf_counter()
         frac = 1.0 - (update - 1.0) / nupdates
@@ -264,8 +307,8 @@ if __name__ == '__main__':
 
         mblossvals = runner.train(lrnow, cliprangenow, nminibatches, noptepochs, obs, returns, masks, actions, values, neglogpacs, states)
 
-        values = sf01(values)
-        returns = sf01(returns)
+        # values = sf01(values)
+        # returns = sf01(returns)
 
         # Feedforward --> get losses --> update
         lossvals = np.mean(mblossvals, axis=0)
@@ -291,6 +334,23 @@ if __name__ == '__main__':
             logger.logkv("ELO top 3: %s" % runner.models[positions[2]].model_name, str(round(runner.ratings[positions[2]], 1)))
             logger.logkv("ELO top 4: %s" % runner.models[positions[3]].model_name, str(round(runner.ratings[positions[3]], 1)))
             logger.logkv("ELO worst: %s" % runner.models[positions[-1]].model_name, str(round(runner.ratings[positions[-1]], 1)))
+
+            if update % replace_worst_interval == 0 and update > 0:
+                i = 0
+                while i < runner.m:
+                    if isinstance(runner.models[positions[i]], PPOModel) and runner.models[positions[i]].trainable:
+                        break
+                    i += 1
+                j = runner.m - 1
+                while j >= 0:
+                    if isinstance(runner.models[positions[j]], PPOModel) and runner.models[positions[j]].trainable:
+                        break
+                    j -= 1
+                best_model = runner.models[positions[i]]
+                worst_model = runner.models[positions[j]]
+                print('yellow: Coppio i pesi dal modello %s per il %s' % (best_model.model_name, worst_model.model_name))
+                load_variables_from_another_model(worst_model, best_model)
+                runner.ratings[positions[j]] = runner.ratings[positions[i]]
 
             if update % new_player_introduce_interval == 0 and update > 0 or update == 1:
                 i = 0
@@ -326,7 +386,7 @@ if __name__ == '__main__':
                 break
             if MPI is None or MPI.COMM_WORLD.Get_rank() == 0:
                 logger.dumpkvs()
-        if save_interval and (update % save_interval == 0 or update == 1) and logger.get_dir() and (
+        if save_interval and (update % save_interval == 0) and logger.get_dir() and (
                 MPI is None or MPI.COMM_WORLD.Get_rank() == 0):
             checkdir = osp.join(logger.get_dir(), 'checkpoints')
             os.makedirs(checkdir, exist_ok=True)
@@ -345,4 +405,8 @@ if __name__ == '__main__':
                 fn = models_path + model.model_name + '.rating.txt'
                 with open(fn, 'w') as fp:
                     fp.write(str(runner.ratings[i]))
+                rf_path = models_path + model.model_name + '.reward_function.pkl'
+                if hasattr(model, 'reward_function'):
+                    with open(rf_path, 'wb') as fp:
+                        pickle.dump(model.reward_function, fp)
     # return model

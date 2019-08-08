@@ -1,4 +1,5 @@
 import math
+import random
 import sys
 from copy import copy
 from threading import Thread
@@ -123,7 +124,7 @@ class Haxball(Env):
         x1 = x
         return -25 * x1 * math.exp(-((y ** 2) / (x1 ** 2))) + 25
 
-    def get_observation(self, red_team: bool, state_only=False):
+    def get_observation(self, red_team: bool, state_only=False, reward_function=None):
         # Lettura degli stati
         cur_read_index = self._red_player_read_index if red_team else self._blue_player_read_index
         opponent_read_index = self._blue_player_read_index if red_team else self._red_player_read_index
@@ -167,17 +168,16 @@ class Haxball(Env):
         # self.gameplay.U.Ed - meta' lunghezza
 
         # La distanza dalla palla alla porta dell'avversario (penalità)
-        # distanza_palla_porta_avversario = math.sqrt((ball_pos_x + self.gameplay.U.Ed) ** 2 + ball_pos_y ** 2)
-        # reward -= distanza_palla_porta_avversario
-        # reward -= 0.0001*((ball_pos_x + self.gameplay.U.Ed) ** 2 + ball_pos_y ** 2)
+        distanza_palla_porta_avversario = math.sqrt((ball_pos_x + self.gameplay.U.Ed) ** 2 + ball_pos_y ** 2)
+        reward += -0.2 * distanza_palla_porta_avversario
 
         # La distanza dalla palla alla porta del giocatore (premio piccolo)
-        # reward += 0.1 * math.sqrt((self.gameplay.U.Ed - ball_pos_x) ** 2 + ball_pos_y ** 2)
+        reward += 0.05 * math.sqrt((self.gameplay.U.Ed - ball_pos_x) ** 2 + ball_pos_y ** 2)
         # reward += 0.1 * ((self.gameplay.U.Ed - ball_pos_x) ** 2 + ball_pos_y ** 2)
 
         # Distanza dal giocatore alla palla (divisa per due) (penalità)
         distanza_alla_palla = math.sqrt((ball_pos_x - player_pos_x) ** 2 + (ball_pos_y - player_pos_y) ** 2)
-        reward -= 0.5 * distanza_alla_palla
+        reward += -0.1 * distanza_alla_palla
 
         # if abs(ball_pos_x) >= 1:
         #    norm_x = ball_pos_x / self.gameplay.U.Ed
@@ -189,13 +189,13 @@ class Haxball(Env):
         # reward += player_vel_x ** 2 + player_vel_y ** 2
 
         # Velocità della palla verso la porta dell'avversario (però, va pensato bene, forse si deve contare solo i casi quando è il giocatore che tocca la palla, ma non l'avversario)
-        if abs(ball_vel_x) > 0.01 or abs(ball_vel_y) > 0.01:
+        if abs(ball_vel_x) > 0.001 or abs(ball_vel_y) > 0.001:
             vett_palla_porta = (self.gameplay.U.Ed + ball_pos_x, ball_pos_y)
             ps = self.prodotto_scalare(vett_palla_porta, (-ball_vel_x, ball_vel_y))
             velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
             # if ps < 0:
             #     ps /= 2
-            reward += 500 * ps * velocita_palla
+            reward += 10 * ps * velocita_palla
             # print(50 * ps * velocita_palla)
 
         # reward += 50 * velocita_palla
@@ -228,19 +228,19 @@ class Haxball(Env):
         if self.gameplay.red_scored:
             if red_team:
                 print('goal from red')
-                goal_reward = +50_000
+                goal_reward = 50_000
                 score = 1
             else:
-                goal_reward = -5_000
+                goal_reward = -50_000
                 score = 0
             done = True
         elif self.gameplay.blue_scored:
             if red_team:
-                goal_reward = -5_000
+                goal_reward = -50_000
                 score = 0
             else:
                 print('goal from blue')
-                goal_reward = +50_000
+                goal_reward = 50_000
                 score = 1
             done = True
 
@@ -281,7 +281,7 @@ class Haxball(Env):
                     print('draw')
             elif self._ticks >= self.max_ticks // 8:
                 if deve_cominciare:
-                    reward -= 5_000
+                    reward -= 50_000
                     score = 0
                     print('lost by doing nothing')
                     done = True
@@ -318,8 +318,8 @@ class Haxball(Env):
         #     self.gameplay.step(1)
         # self._ticks += 1
 
-    def step_wait(self, red_team):
-        return self.get_observation(red_team)
+    def step_wait(self, red_team, reward_function=None):
+        return self.get_observation(red_team, reward_function=reward_function)
 
     def step_physics(self, virtual_steps=6):
         for i in range(virtual_steps):
@@ -345,13 +345,13 @@ class Haxball(Env):
         obs = [self.get_observation(red_team) for red_team in (True, False)]
         return obs
 
-    def reset(self):
+    def reset(self, reward_functions=(None, None)):
         self.gameplay.reset()
         self._ticks = 0
         self.last_red_obs_tick = 0
         self.last_blue_obs_tick = 0
 
-        obs = [self.get_observation(red_team, state_only=True) for red_team in (True, False)]
+        obs = [self.get_observation(red_team, state_only=True, reward_function=reward_functions[i]) for i, red_team in ((0, True), (1, False))]
 
         return obs[0]
 

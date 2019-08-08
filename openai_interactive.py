@@ -108,8 +108,9 @@ if __name__ == '__main__':
     log_interval = 100
     load_path = None
     # load_path = 'ppo2_best_so_far2.h5'
-    load_path = 'ppo2.h5'
-    # load_path = 'models10/ppo_model_2.h5'
+    # load_path = 'ppo2.h5'
+    # load_path = 'ppo2_base_delayed2.h5'
+    load_path = 'models13/ppo_model_2.h5'
     # model_i = 3
     model_i = ''
     # load_path = 'models/%s.h5' % model_i
@@ -119,7 +120,7 @@ if __name__ == '__main__':
     policy = build_policy(env=env, policy_network='mlp', num_layers=4, num_hidden=256)
     # policy = build_policy(env=env, policy_network='lstm', nlstm=512)  # num_layers=4, num_hidden=256)
 
-    model = A2CModel(policy, model_name='ppo2_model', env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps, lr=7e-4)  # 0.005) #, vf_coef=0.0)
+    model = A2CModel(policy, model_name='ppo_model_2', env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps, lr=7e-4)  # 0.005) #, vf_coef=0.0)
     if load_path is not None and os.path.exists(load_path):
         model.load(load_path)
     # model = StaticModel()
