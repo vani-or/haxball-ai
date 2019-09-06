@@ -1,4 +1,5 @@
 import logging
+import random
 from copy import copy
 from typing import List
 
@@ -326,15 +327,23 @@ def env_worker_multiple_envs(conn: Connection, **env_kwargs):
 
                 # Le azioni non sono immediate
                 # steps_to_wait = max(1, np.random.poisson(lam=1))
-                env.step_physics(3)
+                env.step_physics(1)
 
                 env.step_async(a1, red_team=True)
 
-                # env.step_physics(1)
+                # Le azioni sfalsate
+                delay = int(np.round(np.clip(np.random.normal(8, 1), 5, 11)))
+                if random.random() < 0.5:
+                    pause1 = delay // 2
+                    pause2 = delay - pause1
+                else:
+                    pause2 = delay // 2
+                    pause1 = delay - pause2
 
+                env.step_physics(pause1)
                 env.step_async(a2, red_team=False)
 
-                env.step_physics(3)
+                # env.step_physics(1)
 
                 # Le misure di obs non sono immediate
                 # steps_to_wait = max(1, np.random.poisson(lam=2))
@@ -354,8 +363,8 @@ def env_worker_multiple_envs(conn: Connection, **env_kwargs):
                     infos.append(info)
                     is_done |= done
 
-                    # if red_team:
-                    #     env.step_physics(1)
+                    if red_team:
+                        env.step_physics(pause2)
                 if is_done:
                     env.reset()
 
@@ -390,7 +399,7 @@ class HaxballProcPoolVecEnv(HaxballVecEnv):
 
         # self.n_processes = min(self.num_fields, cpu_count())
         self.n_processes = cpu_count()
-        self.n_active_connections = max(self.num_fields, self.n_processes)
+        self.n_active_connections = min(self.num_fields, self.n_processes)
         logging.debug('Starting processes pool with N=%s' % self.n_processes)
 
         self.connections = []

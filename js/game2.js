@@ -3855,7 +3855,13 @@ Content-Type: application/x-javascript
                 }
                 for (; b.length > a; )
                     b.pop();
-                this.rg.xs(this.X)
+                this.rg.xs(this.X);
+                // INJECTION
+                // console.log("S", this.L.H.wa.K[0].M);
+                if(!window.tutti_i_dati)
+                {
+                    window.tutti_i_dati = this;
+                }
             }
         },
         iq: function(a) {

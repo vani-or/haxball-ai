@@ -1,7 +1,7 @@
 import operator
 import os
 
-models_path = 'models14'
+models_path = 'models16'
 
 with open(models_path + '/update.txt', 'r') as fp:
     print('UPDATE: %s' % fp.read().strip())

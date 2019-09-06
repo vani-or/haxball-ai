@@ -31,12 +31,14 @@ from torneo.models import StaticModel, RandomModel, PazzoModel
 
 
 class DelayedModel:
-    def __init__(self, env: Haxball, model: A2CModel, play_red: bool) -> None:
+    def __init__(self, env: Haxball, model: A2CModel, play_red: bool, nenvs: int, nlstm: int, nsteps: int) -> None:
         self.state = 0
         self.env = env
         self.model = model
         self.play_red = play_red
         self.wait_time = 2
+        self.nsteps = nsteps
+        self.states = np.zeros(shape=(nenvs, nlstm*2))
 
     def gameplay_tick(self):
         if self.state == 0:
@@ -59,7 +61,8 @@ class DelayedModel:
 
         elif self.state == 2:
             # Facciamo una predizione
-            self.actions, self.rew, _, _ = self.model.step(np.array([self.obs]), M=[self.done], S=None)
+            self.actions, self.rew, states, _ = self.model.step(np.array([self.obs]), M=[self.done], S=self.states)
+            self.states = states
             self.state = 4
             self.wait_time = 0
 
@@ -101,26 +104,31 @@ if __name__ == '__main__':
         MPI = None
     from baselines import logger
 
-    nsteps = 3
+    nsteps = 30
     gamma = 0.99
-    nenvs = 2
+    nenvs = 1
     total_timesteps = int(15e7)
     log_interval = 100
+    nminibatches = 1
+    nlstm = 512
     load_path = None
-    load_path = 'ppo2.h5'
-    # load_path = 'ppo2.h5'
+    # load_path = 'ppo2_best_so_far2.h5'
+    load_path = 'ppo2_lstm_slow.h5'
     # load_path = 'ppo2_base_delayed2.h5'
-    # load_path = 'models16/ppo_model_0.h5'
+    # load_path = 'models15/ppo_model_1.h5'
     # model_i = 3
     model_i = ''
     # load_path = 'models/%s.h5' % model_i
 
     max_ticks = int(60*3*(1/0.016))
     env = HaxballProcPoolVecEnv(num_fields=nenvs, max_ticks=max_ticks)
-    policy = build_policy(env=env, policy_network='mlp', num_layers=4, num_hidden=256)
+    policy = build_policy(env=env, policy_network='lstm', nlstm=nlstm)
     # policy = build_policy(env=env, policy_network='lstm', nlstm=512)  # num_layers=4, num_hidden=256)
 
-    model = A2CModel(policy, model_name='ppo2_model', env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps, lr=7e-4)  # 0.005) #, vf_coef=0.0)
+    nbatch = nenvs * nsteps
+    nbatch_train = nbatch // nminibatches
+
+    model = PPOModel(policy=policy, ob_space=env.observation_space, ac_space=env.action_space, nbatch_act=nenvs, nbatch_train=nbatch_train, nsteps=nsteps, ent_coef=0.05, vf_coef=0.5, max_grad_norm=0.5)  # 0.005) #, vf_coef=0.0)
     if load_path is not None and os.path.exists(load_path):
         model.load(load_path)
     # model = StaticModel()
@@ -160,7 +168,7 @@ if __name__ == '__main__':
     action = 0
     play_red = 1
 
-    dm = DelayedModel(env, model, play_red)
+    dm = DelayedModel(env, model, play_red, nenvs=nenvs, nlstm=nlstm, nsteps=nsteps)
 
     blue_unpressed = True
     red_unpressed = True

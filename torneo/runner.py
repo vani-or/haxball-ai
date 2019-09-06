@@ -282,7 +282,7 @@ class TorneoRunner(AbstractEnvRunner):
             #     models_obs = sf01(obs[:, indexes])
             #     print(models_obs)
 
-            if not self.models[i].trainable and not isinstance(self.models[i], StaticModel):
+            if not self.models[i].trainable: # and not isinstance(self.models[i], StaticModel):
                 continue
 
             sf01_indexes = self.sf01_indexes[i]
@@ -327,7 +327,6 @@ class TorneoRunner(AbstractEnvRunner):
             # models_neglogpacs = np.hstack((neglogpacs_loc, neglogpacs_loc))
             models_neglogpacs = neglogpacs[sf01_indexes]
             models_neglogpacs = np.hstack((models_neglogpacs, models_neglogpacs))
-            # TODO: redefine states per LSTM
 
             nbatch = models_actions.shape[0]
             nbatch_train = nbatch // nminibatches
@@ -353,6 +352,8 @@ class TorneoRunner(AbstractEnvRunner):
                                 mblossvals.append(res)
                         ####
             else:  # recurrent version
+                models_states = states[sf01_indexes]
+                models_states = np.hstack((models_states, models_states))
                 assert self.nenv % nminibatches == 0
                 envsperbatch = self.nenv // nminibatches
                 envinds = np.arange(self.nenv)
@@ -363,10 +364,14 @@ class TorneoRunner(AbstractEnvRunner):
                         end = start + envsperbatch
                         mbenvinds = envinds[start:end]
                         mbflatinds = flatinds[mbenvinds].ravel()
-                        slices = (arr[mbflatinds] for arr in (obs, returns, masks, actions, values, neglogpacs))
-                        mbstates = states[mbenvinds]
-                        # TODO: redefine
-                        mblossvals.append(model.train(lrnow, cliprangenow, *slices, mbstates))
+                        slices = [arr[mbflatinds] for arr in (models_obs, models_returns, models_masks, models_actions, models_values, models_neglogpacs)]
+                        # slices = (arr[mbflatinds] for arr in (obs, returns, masks, actions, values, neglogpacs))
+                        mbstates = models_states[mbenvinds]
+                        if not isinstance(self.models[i], StaticModel):
+                            res = self.models[i].train(lrnow, cliprangenow, *slices, mbstates)
+                            if isinstance(self.models[i], PPOModel):
+                                mblossvals.append(res)
+                        # mblossvals.append(model.train(lrnow, cliprangenow, *slices, mbstates))
 
         ###########
         return mblossvals

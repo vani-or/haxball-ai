@@ -99,10 +99,30 @@ class BrowserEnvironment(HXController):
         self.not_started_yet = 0
         self.game_finished = False
         self.tempo = 0
+        self.prev_info_hash = -1
+        self.prev_info = None
 
     @classmethod
     def prodotto_scalare(cls, a, b):
-        return (a[0] * b[0] + a[1] * b[1]) / cls.lung(a) / cls.lung(b)
+        lung_a = max(1e-5, cls.lung(a))
+        lung_b = max(1e-5, cls.lung(b))
+        return (a[0] * b[0] + a[1] * b[1]) / lung_a / lung_b
+
+    @classmethod
+    def get_all_dict_values(cls, d: dict) -> list:
+        values = []
+        if isinstance(d, dict):
+            for v in d.values():
+                if isinstance(v, dict):
+                    sub_values = cls.get_all_dict_values(v)
+                    for sv in sub_values:
+                        values.append(sv)
+                elif isinstance(v, list):
+                    for sv in v:
+                        values.append(sv)
+                else:
+                    values.append(v)
+        return list(map(str, values))
 
     @classmethod
     def lung(cls, a):
@@ -120,7 +140,7 @@ class BrowserEnvironment(HXController):
 
     def step(self, action):
         # Capire quali bottoni da premere
-        st = time.time()
+        # st = time.time()
         keys_to_press = []
         if action in self.action_2_button:
             for key in self.action_2_button[action]:
@@ -151,22 +171,20 @@ class BrowserEnvironment(HXController):
 
         # Aspetto l'effeto dell'azione
         # time.sleep(settings['REWARD_WAIT_TIME'])
-        self.press_buttons_times.append(time.time() - st)
-        self.press_buttons_counter += 1
-        if self.press_buttons_counter % 10000 == 0:
-            print('press_buttons_times - mean', np.mean(self.press_buttons_times))
-            print('press_buttons_times - std', np.std(self.press_buttons_times))
-            self.press_buttons_times = []
+        # while time.time() - st < 0.0333:
+        #     time.sleep(0.001)
 
         # Ottengo l'info del gioco dal JavaScript
-        st = time.time()
-        game_info = self.get_game_info()
-        self.get_info_times.append(time.time() - st)
-        self.get_info_counter += 1
-        if self.get_info_counter % 10000 == 0:
-            print('get_info_times - mean', np.mean(self.get_info_times))
-            print('get_info_times - std', np.std(self.get_info_times))
-            self.get_info_times = []
+        new_info_hash = 0
+        game_info = None
+        i = 0
+        while game_info is None or new_info_hash == self.prev_info_hash:
+            game_info = self.get_game_info()
+            new_info_hash = sum(map(hash, sorted(self.get_all_dict_values(game_info))))
+            i += 1
+        print('hash is: %s' % i)
+        self.prev_info = game_info
+        self.prev_info_hash = new_info_hash
 
         if not game_info or not game_info['player'] or not game_info['opponent']:
             return
@@ -197,14 +215,27 @@ class BrowserEnvironment(HXController):
         reward = 0
 
         # La distanza dalla palla alla porta dell'avversario (penalità)
-        reward -= math.sqrt((game_info['ball']['position']['x'] + game_info['field_size'][0]) ** 2 + game_info['ball']['position']['y'] ** 2)
+        # reward -= math.sqrt((game_info['ball']['position']['x'] + game_info['field_size'][0]) ** 2 + game_info['ball']['position']['y'] ** 2)
 
         # La distanza dalla palla alla porta del giocatore (premio piccolo)
-        reward += 0.1 * math.sqrt((game_info['field_size'][0] - game_info['ball']['position']['x']) ** 2 + game_info['ball']['position']['y'] ** 2)
+        # reward += 0.1 * math.sqrt((game_info['field_size'][0] - game_info['ball']['position']['x']) ** 2 + game_info['ball']['position']['y'] ** 2)
 
         # Distanza dal giocatore alla palla (divisa per due) (penalità)
         distanza_alla_palla = math.sqrt((game_info['ball']['position']['x'] - game_info['player']['position']['x']) ** 2 + (game_info['ball']['position']['y'] - game_info['player']['position']['y']) ** 2)
-        reward -= distanza_alla_palla / 2
+        reward -= 0.5 * distanza_alla_palla
+
+        ball_pos_x = game_info['ball']['position']['x']
+        ball_pos_y = game_info['ball']['position']['y']
+        ball_vel_x = game_info['ball']['velocity']['x']
+        ball_vel_y = game_info['ball']['velocity']['y']
+        field_half_width = game_info['field_size'][0]
+        if abs(ball_vel_x) > 0.01 or abs(ball_vel_y) > 0.01:
+            vett_palla_porta = (field_half_width + ball_pos_x, ball_pos_y)
+            ps = self.prodotto_scalare(vett_palla_porta, (-ball_vel_x, ball_vel_y))
+            velocita_palla = math.sqrt(ball_vel_x ** 2 + ball_vel_y ** 2)
+            # if ps < 0:
+            #     ps /= 2
+            reward += 500 * ps * velocita_palla
 
         # Velocità della palla verso la porta dell'avversario (però, va pensato bene, forse si deve contare solo i casi quando è il giocatore che tocca la palla, ma non l'avversario)
         # vett_palla_porta = (game_info['field_size'][0] + game_info['ball']['position']['x'], game_info['ball']['position']['y'])
@@ -213,11 +244,11 @@ class BrowserEnvironment(HXController):
         # Velocità troppo bassa (penalità)
         if not campo_bloccato:
             velocita_palla = math.sqrt(game_info['ball']['velocity']['x'] ** 2 + game_info['ball']['velocity']['y'] ** 2)
-            reward -= 100 * max(0.0, 0.5 - velocita_palla)
+            reward -= 2000 * max(0.0, 0.1 - velocita_palla)
 
         # Penalità se il giocatore e "davanti" alla palla
-        if game_info['player']['position']['x'] < game_info['ball']['position']['x']:
-            reward -= (game_info['ball']['position']['x'] - game_info['player']['position']['x'])
+        # if game_info['player']['position']['x'] < game_info['ball']['position']['x']:
+        #     reward -= (game_info['ball']['position']['x'] - game_info['player']['position']['x'])
 
         # Se il giocatore deve cominciare la partità facciamo la penalità incrementale
         # if game_info['player']['team'] == game_info['init']['team'] and not game_info['init']['started']:
@@ -237,14 +268,14 @@ class BrowserEnvironment(HXController):
             score_index = 0 if self.red_team else 1
             if self.score[score_index] < game_info['score'][score_index]:
                 # premio, abbiamo segnato
-                goal_reward = 500
+                goal_reward = 50_000
                 self.game_finished = True
-                self.tempo = 0
+                done = True
             elif self.score[1 - score_index] < game_info['score'][1 - score_index]:
                 # penalità, abbiamo subito
-                goal_reward = -200
+                goal_reward = -5_000
                 self.game_finished = True
-                self.tempo = 0
+                done = True
         reward += goal_reward
 
         self.score = game_info['score']
@@ -262,17 +293,12 @@ class BrowserEnvironment(HXController):
             game_info['ball']['position']['y'],
             game_info['ball']['velocity']['x'],
             game_info['ball']['velocity']['y'],
-            # int(self._buttons_state['left']) if not self.red_team else int(self._buttons_state['right']),
-            # int(self._buttons_state['right']) if not self.red_team else int(self._buttons_state['left']),
-            # int(self._buttons_state['up']) if not self.red_team else int(self._buttons_state['down']),
-            # int(self._buttons_state['down']) if not self.red_team else int(self._buttons_state['up']),
-            # int(self._buttons_state['space']),
             distanza_alla_palla,
             int(campo_bloccato),
             # self.tempo
         ]
 
-        return state, reward, done
+        return state, reward / 1000, done
 
     def invert_state(self, state):
         new_state = copy(state)

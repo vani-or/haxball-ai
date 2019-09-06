@@ -23,17 +23,17 @@ if __name__ == '__main__':
     n_players = 1
     nenvs = 2
 
-    nsteps = 75
+    nsteps = 100
     gamma = 0.99
     lam = 0.95
     nminibatches = 4  # 4
     noptepochs = 4
     ent_coef = 0.0
-    lr = 3e-4
+    lr = 3e-4 / 10
     cliprange = 0.2
     vf_coef = 0.5
     max_grad_norm = 0.5
-    models_path = 'models14/'
+    models_path = 'models17/'
     os.makedirs(models_path, exist_ok=True)
 
     # load_path = 'ciao.h5'
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     load_path = None
     log_interval = 25
     new_player_introduce_interval = 1000
-    replace_worst_interval = 200
+    replace_worst_interval = 500
     total_timesteps = int(10e7)
     max_ticks = int(60 * 3 * (1 / 0.0166))
     env = HaxballProcPoolVecEnv(num_fields=nenvs//2, max_ticks=max_ticks)
@@ -52,15 +52,17 @@ if __name__ == '__main__':
         with open(models_path + '/results.pkl', 'rb') as fp:
             runner.results = pickle.load(fp)
 
-    n_players = 2
-    nenvs = 2 * n_players * (n_players - 1)
+    n_players = 3 + 3
+    # nenvs = 2 * n_players * (n_players - 1)
+    nenvs = 2 * (n_players - 1)
     ob_space = env.observation_space
     ac_space = env.action_space
     nbatch = nenvs * nsteps
-    nbatch_train = nbatch // nminibatches
+    nbatch_train = 2 * nbatch // nminibatches
     train_batches_num = nsteps // nminibatches
 
-    policy = build_policy(env, 'mlp', num_layers=4, num_hidden=256)
+    # policy = build_policy(env, 'mlp', num_layers=4, num_hidden=256)
+    policy = build_policy(env, 'lstm', nlstm=512)
 
     def ppo_model_creator(model_name: str, from_model: Optional[PPOModel]=None, trainable=True) -> PPOModel:
         print('Creating model %s...' % model_name)
@@ -76,7 +78,8 @@ if __name__ == '__main__':
             vf_coef=vf_coef,
             max_grad_norm=max_grad_norm,
             model_name=model_name,
-            trainable=trainable
+            trainable=trainable,
+            use_original_batch=True
         )
 
         if from_model is not None:
@@ -95,9 +98,11 @@ if __name__ == '__main__':
             vf_coef=vf_coef,
             max_grad_norm=max_grad_norm,
             model_name='ppo2_model',
-            trainable=True
+            trainable=True,
+            use_original_batch=True
         )
-    perfect_model.load('ppo2_base_delayed.h5')
+    # perfect_model.load('ppo2_prova.h5')
+    # perfect_model.load('ppo2_lstm.h5')
 
     # corridori_model = PPOModel(
     #     policy=policy,
@@ -114,7 +119,7 @@ if __name__ == '__main__':
     # )
     # corridori_model.load('ppo2_corridori.h5')
 
-    min_trainable_players = 10
+    min_trainable_players = 3
     min_baseline_players = 0
 
     for fn in os.listdir(models_path):
@@ -226,16 +231,16 @@ if __name__ == '__main__':
             rating = float(fp.read())
     runner.add_model(static_model, rating=rating)
 
-    model_name = 'random'
-    random_model = RandomModel(default_action=0, model_name=model_name, action_space=ac_space)
-    fn = models_path + model_name + '.rating.txt'
-    rating = 1200
-    if os.path.exists(fn):
-        with open(fn, 'r') as fp:
-            rating = float(fp.read())
-    runner.add_model(random_model, rating=rating)
+    # model_name = 'random'
+    # random_model = RandomModel(default_action=0, model_name=model_name, action_space=ac_space)
+    # fn = models_path + model_name + '.rating.txt'
+    # rating = 1200
+    # if os.path.exists(fn):
+    #     with open(fn, 'r') as fp:
+    #         rating = float(fp.read())
+    # runner.add_model(random_model, rating=rating)
 
-    for i in range(10):
+    for i in range(1):
         model_name = 'pazzo_' + str(i)
         pazzo_model = PazzoModel(change_period=150 + 10*i, model_name=model_name, action_space=ac_space)
         fn = models_path + model_name + '.rating.txt'
@@ -277,7 +282,7 @@ if __name__ == '__main__':
         eval_epinfobuf = deque(maxlen=100)
 
     nupdates = total_timesteps // nbatch // runner.m
-    nupdates = 20000
+    nupdates = 16600
     print('nupdates: %s' % nupdates)
 
     start_update = 1
@@ -335,7 +340,7 @@ if __name__ == '__main__':
             logger.logkv("ELO top 4: %s" % runner.models[positions[3]].model_name, str(round(runner.ratings[positions[3]], 1)))
             logger.logkv("ELO worst: %s" % runner.models[positions[-1]].model_name, str(round(runner.ratings[positions[-1]], 1)))
 
-            if update % replace_worst_interval == 0 and update > 0:
+            if replace_worst_interval > 0 and update % replace_worst_interval == 0 and update > 0:
                 i = 0
                 while i < runner.m:
                     if isinstance(runner.models[positions[i]], PPOModel) and runner.models[positions[i]].trainable:

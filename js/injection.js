@@ -24,8 +24,8 @@ function getHxInfo(player_name)
     {
         window.subwindow = document.getElementsByTagName("iframe")[0].contentWindow;
     }
-    // var L = subwindow.tutti_i_dati.L;
-    var L = subwindow._this.Ka; // i dati real-time
+    var L = subwindow.tutti_i_dati.T;
+    // var L = subwindow._this.Ka; // i dati real-time
     // Pa -> Ka
     var player_index = -1;
     var opponent_index = -1;
@@ -51,6 +51,7 @@ function getHxInfo(player_name)
                 team: L.I[player_index].ca.w, // L.D[player_index].$.o -> L.I[i].ca.w
                 position: L.I[player_index].H.a, // L.D[player_index].F.M -> L.I[i].H.a
                 velocity: L.I[player_index].H.D, // L.D[player_index].F.M -> L.I[i].H.D
+                input: L.I[player_index].nb
             };
         }
 
@@ -71,6 +72,7 @@ function getHxInfo(player_name)
             team: L.I[opponent_index].ca.w,
             position: L.I[opponent_index].H.a,
             velocity: L.I[opponent_index].H.D,
+            input: L.I[opponent_index].nb
         };
     }
 

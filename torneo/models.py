@@ -29,7 +29,7 @@ class PPOModel(Model):
     - Save load the model
     """
 
-    def __init__(self, *, policy, ob_space, ac_space, nbatch_act, nbatch_train, nsteps, ent_coef, vf_coef, max_grad_norm, microbatch_size=None, model_name='ppo2_model', trainable=True):
+    def __init__(self, *, policy, ob_space, ac_space, nbatch_act, nbatch_train, nsteps, ent_coef, vf_coef, max_grad_norm, microbatch_size=None, model_name='ppo2_model', trainable=True, use_original_batch=False):
         self.sess = sess = get_session()
         self.model_name = model_name
         self.trainable = trainable
@@ -37,13 +37,13 @@ class PPOModel(Model):
         with tf.variable_scope(model_name, reuse=tf.AUTO_REUSE):
             # CREATE OUR TWO MODELS
             # act_model that is used for sampling
-            act_model = policy(None, 1, sess)
+            act_model = policy(nbatch_act if use_original_batch else None, 1, sess)
 
             # Train model for training
             if microbatch_size is None:
-                train_model = policy(None, nsteps, sess)
+                train_model = policy(nbatch_train if use_original_batch else None, nsteps, sess)
             else:
-                train_model = policy(None, nsteps, sess)
+                train_model = policy(microbatch_size if use_original_batch else None, nsteps, sess)
 
         # CREATE THE PLACEHOLDERS
         self.A = A = train_model.pdtype.sample_placeholder([None])

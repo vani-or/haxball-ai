@@ -49,19 +49,19 @@ if __name__ == '__main__':
     total_timesteps = int(15e7)
     log_interval = 100
     load_path = None
-    load_path = 'ppo2.h5'
-    # load_path = 'models8/ppo_model_1.h5'
+    # load_path = 'ppo2.h5'
+    load_path = 'models14/ppo_model_8.h5'
     # model_i = 3
     model_i = ''
     # load_path = 'models/%s.h5' % model_i
 
     max_ticks = int(60*2*(1/0.016))
-    env = HaxballProcPoolVecEnv(num_fields=nenvs, max_ticks=max_ticks)
-    # env = HaxballSubProcVecEnv(num_fields=nenvs, max_ticks=max_ticks)
+    # env = HaxballProcPoolVecEnv(num_fields=nenvs, max_ticks=max_ticks)
+    env = HaxballSubProcVecEnv(num_fields=nenvs, max_ticks=max_ticks)
     policy = build_policy(env=env, policy_network='mlp', num_layers=4, num_hidden=256)
     # policy = build_policy(env=env, policy_network='lstm')
 
-    model = A2CModel(policy, model_name='ppo2_model', env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps, lr=7e-4)# 0.005) #, vf_coef=0.0)
+    model = A2CModel(policy, model_name='ppo_model_8', env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps, lr=7e-4)# 0.005) #, vf_coef=0.0)
 
     play = True
     if load_path is not None and os.path.exists(load_path):

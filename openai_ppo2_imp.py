@@ -7,7 +7,7 @@ from baselines import logger
 from baselines.common import set_global_seeds, explained_variance
 
 
-nenvs = 100
+nenvs = 512
 nsteps = 30
 gamma = 0.99
 # load_path = 'ciao.h5'
@@ -47,6 +47,7 @@ from baselines.ppo2.ppo2 import learn
 
 model = learn(
     network='mlp',
+    # network='lstm',
     env=env,
     total_timesteps=total_timesteps,
     eval_env=None,
@@ -59,12 +60,13 @@ model = learn(
     gamma=gamma,
     lam=0.95,
     log_interval=log_interval,
-    nminibatches=4,
-    noptepochs=4,
+    nminibatches=8,
+    noptepochs=16,
     cliprange=0.2,
     save_interval=save_interval,
     load_path=load_path,
     model_fn=None,
     num_layers=4,
-    num_hidden=256
+    num_hidden=256,
+    # nlstm=512,
 )
