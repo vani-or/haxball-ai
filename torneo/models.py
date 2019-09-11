@@ -215,6 +215,10 @@ class PazzoModel(StaticModel):
             if vers_denom > 40:
                 prob_x = abs(comp_x) / vers_denom
                 prob_y = abs(comp_y) / vers_denom
+                if prob_x > prob_y:
+                    prob_x = 1
+                elif prob_y > prob_x:
+                    prob_y = 1
 
                 if random.random() < prob_x:
                     hor = abs(comp_x) / comp_x
@@ -237,6 +241,67 @@ class PazzoModel(StaticModel):
                 action = 5
             elif hor == 0 and ver < 0:
                 action = 1
+
+            actions.append(action)
+
+        num = obs.shape[0]
+        tmp_values = np.ones(shape=(num,))
+        tmp_states = None
+        tmp_neglogpacs = np.ones(shape=(num,))
+        return np.array(actions), tmp_values, tmp_states, tmp_neglogpacs
+
+class MoreRealisticModel(StaticModel):
+    def step(self, obs, **kwargs):
+        actions = []
+        for i, ob in enumerate(obs):
+            hor = 0
+            ver = 0
+            action = 0
+
+            point = [ob[8], ob[9]]
+            if ob[0] < ob[8]:
+                point[0] = ob[8] + 15
+
+            comp_x = point[0] - ob[0]
+            comp_y = point[1] - ob[1]
+            vers_denom = math.sqrt(comp_x ** 2 + comp_y ** 2)
+
+            if vers_denom > 0:
+                prob_x = abs(comp_x) / vers_denom
+                prob_y = abs(comp_y) / vers_denom
+                if prob_x > prob_y:
+                    prob_x = 1
+                elif prob_y > prob_x:
+                    prob_y = 1
+
+                if random.random() < prob_x:
+                    hor = abs(comp_x) / comp_x
+                if random.random() < prob_y:
+                    ver = abs(comp_y) / comp_y
+
+            if hor > 0 and ver > 0:
+                action = 4
+            elif hor > 0 and ver < 0:
+                action = 2
+            elif hor < 0 and ver > 0:
+                action = 6
+            elif hor < 0 and ver < 0:
+                action = 8
+            elif hor > 0 and ver == 0:
+                action = 3
+            elif hor < 0 and ver == 0:
+                action = 7
+            elif hor == 0 and ver > 0:
+                action = 5
+            elif hor == 0 and ver < 0:
+                action = 1
+
+            if ob[0] > ob[8] and ob[12] < 30:
+                k = (ob[1] - ob[9]) / (ob[0] - ob[8])
+                b = ob[1] - k * ob[0]
+                y_cross = -370 * k + b
+                if -64 < y_cross < 64:
+                    action = 9
 
             actions.append(action)
 

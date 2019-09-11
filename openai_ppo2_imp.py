@@ -7,16 +7,16 @@ from baselines import logger
 from baselines.common import set_global_seeds, explained_variance
 
 
-nenvs = 512
+nenvs = 200
 nsteps = 30
 gamma = 0.99
-# load_path = 'ciao.h5'
+# load_path = 'ppo2.pergio.h5'
 save_interval = 100
-load_path = None
-# load_path = 'ppo2_base_delayed.h5'
+# load_path = None
+load_path = 'ppo2.load.h5'
 log_interval = 100
-lr = 3e-4
-total_timesteps = int(10e7)
+lr = 3e-4 / 100
+total_timesteps = int(40e7)
 max_ticks = int(60*2*(1/0.0166))
 # env = HaxballSubProcVecEnv(num_fields=nenvs, max_ticks=max_ticks)
 env = HaxballProcPoolVecEnv(num_fields=nenvs, max_ticks=max_ticks)
@@ -61,12 +61,12 @@ model = learn(
     lam=0.95,
     log_interval=log_interval,
     nminibatches=8,
-    noptepochs=16,
+    noptepochs=4,
     cliprange=0.2,
     save_interval=save_interval,
     load_path=load_path,
     model_fn=None,
-    num_layers=4,
+    num_layers=8,
     num_hidden=256,
     # nlstm=512,
 )

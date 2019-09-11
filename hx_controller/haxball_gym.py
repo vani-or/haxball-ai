@@ -228,7 +228,7 @@ class Haxball(Env):
         score = None
         if self.gameplay.red_scored:
             if red_team:
-                print('goal from red')
+                # print('goal from red')
                 goal_reward = 50_000
                 score = 1
             else:
@@ -240,7 +240,7 @@ class Haxball(Env):
                 goal_reward = -5_000
                 score = 0
             else:
-                print('goal from blue')
+                # print('goal from blue')
                 goal_reward = 50_000
                 score = 1
             done = True
@@ -278,13 +278,13 @@ class Haxball(Env):
                 done = True
                 score = 0.5
                 # reward -= 20_000
-                if red_team:
-                    print('draw')
+                # if red_team:
+                #     print('draw')
             elif self._ticks >= self.max_ticks // 8:
                 if deve_cominciare:
                     reward -= 5_000
                     score = 0
-                    print('lost by doing nothing')
+                    # print('lost by doing nothing')
                     done = True
                 elif campo_bloccato:
                     score = 1

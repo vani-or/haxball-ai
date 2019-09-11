@@ -1,20 +1,20 @@
 // 1. Ottenere il token https://www.haxball.com/rs/api/getheadlesstoken
 // 2. Aprire nel browser: https://html5.haxball.com/headless
-var room = HBInit({ roomName: "Ciao room", maxPlayers: 12, password: "__PASSWORD__", token: "__TOKEN__", public: 0});
+var room = HBInit({ roomName: "Showmatch", maxPlayers: 20, password: "__PASSWORD__", token: "__TOKEN__", public: 0});
 room.setDefaultStadium("Classic");
-room.setScoreLimit(14);
-room.setTimeLimit(0);
+room.setScoreLimit(5);
+room.setTimeLimit(3);
 
-room.onGameStop = function(p) {room.startGame();};
+// room.onGameStop = function(p) {room.startGame();};
 room.onRoomLink = function(url) {window.url = url;};
 room.onPlayerJoin = function(player) {
-    if(player.name.includes('ciao'))
+    if(player.name.includes('ivan'))
     {
         room.setPlayerAdmin(player.id, 1);
     }
 
     // Metto il giocatore nuovo nella squadra vuota
-    if(player.name.endsWith('_'))
+    /*if(player.name.endsWith('_'))
     {
         var free_teams = [1, 1];
         var players = room.getPlayerList();
@@ -37,7 +37,7 @@ room.onPlayerJoin = function(player) {
             room.setPlayerTeam(player.id, 2);
             room.startGame();
         }
-    }
+    }*/
 };
 
 // 3. Ottenere il link

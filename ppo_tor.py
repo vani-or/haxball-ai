@@ -7,7 +7,7 @@ from collections import deque
 
 from hx_controller.haxball_gym import Haxball
 from hx_controller.haxball_vecenv import HaxballProcPoolVecEnv, HaxballSubProcVecEnv
-from torneo.models import PPOModel, StaticModel, RandomModel, PazzoModel
+from torneo.models import PPOModel, StaticModel, RandomModel, PazzoModel, MoreRealisticModel
 from torneo.runner import TorneoRunner
 from torneo.utils import save_model, sf01, load_model, load_variables_from_another_model
 from baselines import logger
@@ -23,27 +23,27 @@ if __name__ == '__main__':
     n_players = 1
     nenvs = 2
 
-    nsteps = 100
+    nsteps = 30
     gamma = 0.99
     lam = 0.95
-    nminibatches = 4  # 4
+    nminibatches = 1  # 4
     noptepochs = 4
     ent_coef = 0.0
-    lr = 3e-4 / 10
+    lr = 3e-4 / 50
     cliprange = 0.2
     vf_coef = 0.5
     max_grad_norm = 0.5
-    models_path = 'models17/'
+    models_path = 'models22/'
     os.makedirs(models_path, exist_ok=True)
 
     # load_path = 'ciao.h5'
     save_interval = 25
     load_path = None
     log_interval = 25
-    new_player_introduce_interval = 1000
+    new_player_introduce_interval = 200
     replace_worst_interval = 500
     total_timesteps = int(10e7)
-    max_ticks = int(60 * 3 * (1 / 0.0166))
+    max_ticks = int(60 * 2 * (1 / 0.0166))
     env = HaxballProcPoolVecEnv(num_fields=nenvs//2, max_ticks=max_ticks)
     # env = HaxballSubProcVecEnv(num_fields=nenvs//2, max_ticks=max_ticks)
 
@@ -61,8 +61,8 @@ if __name__ == '__main__':
     nbatch_train = 2 * nbatch // nminibatches
     train_batches_num = nsteps // nminibatches
 
-    # policy = build_policy(env, 'mlp', num_layers=4, num_hidden=256)
-    policy = build_policy(env, 'lstm', nlstm=512)
+    policy = build_policy(env, 'mlp', num_layers=8, num_hidden=256)
+    # policy = build_policy(env, 'lstm', nlstm=512)
 
     def ppo_model_creator(model_name: str, from_model: Optional[PPOModel]=None, trainable=True) -> PPOModel:
         print('Creating model %s...' % model_name)
@@ -79,7 +79,7 @@ if __name__ == '__main__':
             max_grad_norm=max_grad_norm,
             model_name=model_name,
             trainable=trainable,
-            use_original_batch=True
+            use_original_batch=False
         )
 
         if from_model is not None:
@@ -99,9 +99,9 @@ if __name__ == '__main__':
             max_grad_norm=max_grad_norm,
             model_name='ppo2_model',
             trainable=True,
-            use_original_batch=True
+            use_original_batch=False
         )
-    # perfect_model.load('ppo2_prova.h5')
+    perfect_model.load('ppo2.load.h5')
     # perfect_model.load('ppo2_lstm.h5')
 
     # corridori_model = PPOModel(
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     # )
     # corridori_model.load('ppo2_corridori.h5')
 
-    min_trainable_players = 3
+    min_trainable_players = 10
     min_baseline_players = 0
 
     for fn in os.listdir(models_path):
@@ -231,16 +231,16 @@ if __name__ == '__main__':
             rating = float(fp.read())
     runner.add_model(static_model, rating=rating)
 
-    # model_name = 'random'
-    # random_model = RandomModel(default_action=0, model_name=model_name, action_space=ac_space)
-    # fn = models_path + model_name + '.rating.txt'
-    # rating = 1200
-    # if os.path.exists(fn):
-    #     with open(fn, 'r') as fp:
-    #         rating = float(fp.read())
-    # runner.add_model(random_model, rating=rating)
+    model_name = 'random'
+    random_model = RandomModel(default_action=0, model_name=model_name, action_space=ac_space)
+    fn = models_path + model_name + '.rating.txt'
+    rating = 1200
+    if os.path.exists(fn):
+        with open(fn, 'r') as fp:
+            rating = float(fp.read())
+    runner.add_model(random_model, rating=rating)
 
-    for i in range(1):
+    for i in range(5):
         model_name = 'pazzo_' + str(i)
         pazzo_model = PazzoModel(change_period=150 + 10*i, model_name=model_name, action_space=ac_space)
         fn = models_path + model_name + '.rating.txt'
@@ -249,6 +249,17 @@ if __name__ == '__main__':
             with open(fn, 'r') as fp:
                 rating = float(fp.read())
         runner.add_model(pazzo_model, rating=rating)
+
+    for i in range(5):
+        model_name = 'realistic_' + str(i)
+        realistic_model = MoreRealisticModel(action_space=ac_space, model_name=model_name)
+        fn = models_path + model_name + '.rating.txt'
+        rating = 1200
+        if os.path.exists(fn):
+            with open(fn, 'r') as fp:
+                rating = float(fp.read())
+        runner.add_model(realistic_model, rating=rating)
+
 
     ############### RUNNER #####################
     # Start total timer
@@ -282,7 +293,7 @@ if __name__ == '__main__':
         eval_epinfobuf = deque(maxlen=100)
 
     nupdates = total_timesteps // nbatch // runner.m
-    nupdates = 16600
+    nupdates = 10001
     print('nupdates: %s' % nupdates)
 
     start_update = 1
@@ -355,13 +366,14 @@ if __name__ == '__main__':
                 worst_model = runner.models[positions[j]]
                 print('yellow: Coppio i pesi dal modello %s per il %s' % (best_model.model_name, worst_model.model_name))
                 load_variables_from_another_model(worst_model, best_model)
-                runner.ratings[positions[j]] = runner.ratings[positions[i]]
+                # runner.ratings[positions[j]] = runner.ratings[positions[i]]
 
             if update % new_player_introduce_interval == 0 and update > 0 or update == 1:
                 i = 0
                 while i < runner.m:
                     best_model = runner.models[positions[i]]
                     new_model_rating = runner.ratings[positions[i]]
+                    new_model_rating = 1200
                     if not best_model.trainable or 'ppo2' in best_model.model_name:
                         i += 1
                         continue

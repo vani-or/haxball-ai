@@ -178,11 +178,11 @@ class BrowserEnvironment(HXController):
         new_info_hash = 0
         game_info = None
         i = 0
-        while game_info is None or new_info_hash == self.prev_info_hash:
+        while (game_info is None or new_info_hash == self.prev_info_hash) and i < 1000:
             game_info = self.get_game_info()
             new_info_hash = sum(map(hash, sorted(self.get_all_dict_values(game_info))))
             i += 1
-        print('hash is: %s' % i)
+        # print('hash is: %s' % i)
         self.prev_info = game_info
         self.prev_info_hash = new_info_hash
 

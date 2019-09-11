@@ -114,7 +114,8 @@ class HaxballVecEnv(VecEnv):
         return new_state
 
     def invert_states(self, states: np.ndarray):
-        new_states = np.array(states, copy=True)
+        # new_states = np.array(states, copy=True)
+        new_states = states.copy()
         new_states[:, 1] *= -1  # ['player']['position']['y']
         new_states[:, 3] *= -1  # ['player']['velocity']['y']
         new_states[:, 5] *= -1  # ['opponent']['position']['y']
@@ -124,7 +125,8 @@ class HaxballVecEnv(VecEnv):
         return new_states
 
     def invert_actions(self, actions: np.ndarray):
-        new_actions = np.array(actions, copy=True)
+        # new_actions = np.array(actions, copy=True)
+        new_actions = actions.copy()
         new_actions[actions == 1] = 5  # up -> down
         new_actions[actions == 5] = 1  # down -> up
         new_actions[actions == 2] = 4  # up-right -> down-right

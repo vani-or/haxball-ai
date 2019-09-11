@@ -41,6 +41,8 @@ class TorneoRunner(AbstractEnvRunner):
         self.m = 0
         self.ratings = []
         self.reward_functions = []
+        self.trainable_model = None
+        self.trainable_models_index = -1
         # self.m = 1
         # self.pool = Pool(self.m)
 
@@ -48,11 +50,12 @@ class TorneoRunner(AbstractEnvRunner):
         if self.states is None:
             self.states = model.initial_state
         self.models.append(model)
+        self.trainable_model = model if model.trainable else self.trainable_model
         self.ratings.append(rating)
 
         self.m = len(self.models)
 
-        self.env.set_num_fields(self.m * (self.m - 1))
+        self.env.set_num_fields(self.m * (self.m - 0))
 
         self.nenv = self.env.num_envs if hasattr(self.env, 'num_envs') else 1
 
@@ -70,17 +73,21 @@ class TorneoRunner(AbstractEnvRunner):
 
         self.models_indexes = [[] for _ in range(self.m)]
         self.players_indexs = {}
+
         l = 0
         for k in range(self.m ** 2):
             i = k // self.m
             j = k % self.m
-            if i == j:
-                continue
+            # if i == j:
+            #     continue
             self.players_indexs[l] = (i, j)
             el = l * 2
             self.models_indexes[i].append(el)
             self.models_indexes[j].append(el + 1)
             l += 1
+
+        if model.trainable:
+            self.trainable_models_index = self.m - 1
 
         self.results = {}
 
@@ -161,9 +168,9 @@ class TorneoRunner(AbstractEnvRunner):
             # actions, values, self.states, neglogpacs = self.model.step(self.obs, S=self.states, M=self.dones)
             # MY
             self.dones = np.array(self.dones)
-            actions = np.ones(shape=(2 * self.m * (self.m - 1), )) * (-1)
-            values = np.ones(shape=(2 * self.m * (self.m - 1), )) * (-1)
-            neglogpacs = np.ones(shape=(2 * self.m * (self.m - 1), )) * (-1)
+            actions = np.ones(shape=(2 * self.m * (self.m - 0), )) * (-1)
+            values = np.ones(shape=(2 * self.m * (self.m - 0), )) * (-1)
+            neglogpacs = np.ones(shape=(2 * self.m * (self.m - 0), )) * (-1)
             for i in range(self.m):
                 indexes = self.models_indexes[i]
                 obs = self.obs[indexes]
@@ -192,9 +199,9 @@ class TorneoRunner(AbstractEnvRunner):
 
             # Take actions in env and look the results
             # Infos contains a ton of useful informations
-            self.obs[:], rewards, self.dones, infos = self.env.step(actions, reward_functions=self.reward_functions)
+            self.obs[:], rewards, self.dones, infos = self.env.step(actions)
 
-            players_is = [info['players_i'] for info in infos]
+            # players_is = [info['players_i'] for info in infos]
             # assert players_is == sorted(players_is), 'Osservazioni da ENV non sono in ordine!'
 
             result_scores = [info['score'] for info in infos[::2]]
@@ -215,8 +222,8 @@ class TorneoRunner(AbstractEnvRunner):
         # ORIG
         # last_values = self.model.value(self.obs, S=self.states, M=self.dones)
         # MY
-        last_values = np.zeros(shape=(2 * self.m * (self.m - 1), )) - 1
-        mb_returns = np.zeros_like(mb_rewards)
+        last_values = np.zeros(shape=(2 * self.m * (self.m - 0), )) - 1
+        # mb_returns = np.zeros_like(mb_rewards)
         for i in range(self.m):
             indexes = self.models_indexes[i]
             obs = self.obs[indexes]
@@ -230,40 +237,40 @@ class TorneoRunner(AbstractEnvRunner):
 
             # discount/bootstrap off value fn
             # mb_returns = np.zeros_like(mb_rewards)
-            mb_rewards_loc = mb_rewards[:, indexes]
-            mb_values_loc = mb_values[:, indexes]
-            mb_dones_loc = mb_dones[:, indexes]
-
-            mb_advs = np.zeros_like(mb_rewards_loc)
-            lastgaelam = 0
-            for t in reversed(range(self.nsteps)):
-                if t == self.nsteps - 1:
-                    nextnonterminal = 1.0 - dones
-                    nextvalues = loc_last_values
-                else:
-                    nextnonterminal = 1.0 - mb_dones_loc[t + 1]
-                    nextvalues = mb_values_loc[t + 1]
-                delta = mb_rewards_loc[t] + self.gamma * nextvalues * nextnonterminal - mb_values_loc[t]
-                mb_advs[t] = lastgaelam = delta + self.gamma * self.lam * nextnonterminal * lastgaelam
-            mb_returns_loc = mb_advs + mb_values_loc
-            mb_returns[:, indexes] = mb_returns_loc
+            # mb_rewards_loc = mb_rewards[:, indexes]
+            # mb_values_loc = mb_values[:, indexes]
+            # mb_dones_loc = mb_dones[:, indexes]
+            #
+            # mb_advs = np.zeros_like(mb_rewards_loc)
+            # lastgaelam = 0
+            # for t in reversed(range(self.nsteps)):
+            #     if t == self.nsteps - 1:
+            #         nextnonterminal = 1.0 - dones
+            #         nextvalues = loc_last_values
+            #     else:
+            #         nextnonterminal = 1.0 - mb_dones_loc[t + 1]
+            #         nextvalues = mb_values_loc[t + 1]
+            #     delta = mb_rewards_loc[t] + self.gamma * nextvalues * nextnonterminal - mb_values_loc[t]
+            #     mb_advs[t] = lastgaelam = delta + self.gamma * self.lam * nextnonterminal * lastgaelam
+            # mb_returns_loc = mb_advs + mb_values_loc
+            # mb_returns[:, indexes] = mb_returns_loc
         # last_values = self.model.value(self.obs, S=self.states, M=self.dones)
         ########
 
         # # discount/bootstrap off value fn
-        # # mb_returns = np.zeros_like(mb_rewards)
-        # mb_advs = np.zeros_like(mb_rewards)
-        # lastgaelam = 0
-        # for t in reversed(range(self.nsteps)):
-        #     if t == self.nsteps - 1:
-        #         nextnonterminal = 1.0 - self.dones
-        #         nextvalues = last_values
-        #     else:
-        #         nextnonterminal = 1.0 - mb_dones[t+1]
-        #         nextvalues = mb_values[t+1]
-        #     delta = mb_rewards[t] + self.gamma * nextvalues * nextnonterminal - mb_values[t]
-        #     mb_advs[t] = lastgaelam = delta + self.gamma * self.lam * nextnonterminal * lastgaelam
-        # mb_returns = mb_advs + mb_values
+        mb_returns = np.zeros_like(mb_rewards)
+        mb_advs = np.zeros_like(mb_rewards)
+        lastgaelam = 0
+        for t in reversed(range(self.nsteps)):
+            if t == self.nsteps - 1:
+                nextnonterminal = 1.0 - self.dones
+                nextvalues = last_values
+            else:
+                nextnonterminal = 1.0 - mb_dones[t+1]
+                nextvalues = mb_values[t+1]
+            delta = mb_rewards[t] + self.gamma * nextvalues * nextnonterminal - mb_values[t]
+            mb_advs[t] = lastgaelam = delta + self.gamma * self.lam * nextnonterminal * lastgaelam
+        mb_returns = mb_advs + mb_values
         return (*map(sf01, (mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs)), mb_states, epinfos)
         # return mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, mb_states, epinfos
 
@@ -272,8 +279,8 @@ class TorneoRunner(AbstractEnvRunner):
         # N = 2 * self.m * (self.m - 1)
         mblossvals = []
 
-        nbatch = self.nenv * self.nsteps // self.m
-        nbatch_train = nbatch // nminibatches
+        # nbatch = self.nenv * self.nsteps // self.m
+        # nbatch_train = nbatch // nminibatches
         # train_batches_num = nsteps // nminibatches
 
         for i in range(self.m):
@@ -282,7 +289,7 @@ class TorneoRunner(AbstractEnvRunner):
             #     models_obs = sf01(obs[:, indexes])
             #     print(models_obs)
 
-            if not self.models[i].trainable: # and not isinstance(self.models[i], StaticModel):
+            if not self.models[i].trainable:
                 continue
 
             sf01_indexes = self.sf01_indexes[i]
@@ -336,7 +343,6 @@ class TorneoRunner(AbstractEnvRunner):
                 inds = np.arange(nbatch)  # *2 perchè INV
                 for _ in range(noptepochs):
                     # Randomize the indexes
-                    # TODO: uncomment
                     np.random.shuffle(inds)
                     # 0 to batch_size with batch_train_size step
                     for start in range(0, nbatch, nbatch_train):

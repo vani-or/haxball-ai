@@ -75,6 +75,7 @@ def run_agent(room_url: str, players_queue: Queue):
     if random.random() < 0.1:
         username = username.replace('i', '1')
 
+    username = 'Haxball-AI'
     print('Creating player %s...' % username)
     br = Chrome(port=get_next_port_number(), headless=True)
     br.launch()

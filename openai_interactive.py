@@ -27,7 +27,7 @@ import numpy as np
 from collections import deque
 
 from simulator.visualizer import draw_frame
-from torneo.models import StaticModel, RandomModel, PazzoModel
+from torneo.models import StaticModel, RandomModel, PazzoModel, MoreRealisticModel
 
 
 class DelayedModel:
@@ -76,7 +76,7 @@ class DelayedModel:
 
             self.env.step_async(action, red_team=not self.play_red)
             self.state = 5
-            self.wait_time = 5
+            self.wait_time = 0 #5
 
         elif self.state == 5:
             # Aspettiamo un po'
@@ -107,10 +107,10 @@ if __name__ == '__main__':
     total_timesteps = int(15e7)
     log_interval = 100
     load_path = None
-    load_path = 'ppo2.h5'
     # load_path = 'ppo2.h5'
+    load_path = 'ppo2_best_so_far2.h5'
     # load_path = 'ppo2_base_delayed2.h5'
-    # load_path = 'models16/ppo_model_0.h5'
+    # load_path = 'models17/ppo_model_1.h5'
     # model_i = 3
     model_i = ''
     # load_path = 'models/%s.h5' % model_i
@@ -120,7 +120,7 @@ if __name__ == '__main__':
     policy = build_policy(env=env, policy_network='mlp', num_layers=4, num_hidden=256)
     # policy = build_policy(env=env, policy_network='lstm', nlstm=512)  # num_layers=4, num_hidden=256)
 
-    model = A2CModel(policy, model_name='ppo2_model', env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps, lr=7e-4)  # 0.005) #, vf_coef=0.0)
+    model = A2CModel(policy, model_name='ppo_model_0', env=env, nsteps=nsteps, ent_coef=0.05, total_timesteps=total_timesteps, lr=7e-4)  # 0.005) #, vf_coef=0.0)
     if load_path is not None and os.path.exists(load_path):
         model.load(load_path)
     # model = StaticModel()
@@ -128,6 +128,7 @@ if __name__ == '__main__':
     # model = PazzoModel(action_space=env.action_space)
     # model = StaticModel(default_action=7, action_space=env.action_space)
     # model = StaticModel(action_space=env.action_space)
+    # model = MoreRealisticModel(action_space=env.action_space)
     # nbatch = 100 * 12
     # nbatch_train = nbatch // 4
     # model = PPOModel(policy=policy, nsteps=12, ent_coef=0.05, ob_space=env.observation_space, ac_space=env.action_space, nbatch_act=100, nbatch_train=nbatch_train, vf_coef=0.5, max_grad_norm=0.5)# 0.005) #, vf_coef=0.0)

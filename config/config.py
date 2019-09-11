@@ -14,7 +14,7 @@ settings = {
 
     'ADAM_LEARNING_RATE': 1e-2,
 
-    'ROOM_PASSWORD': 'hellokitty',
+    'ROOM_PASSWORD': 'brumbrum',
 
     'VISUALIZE': 1,
 }
