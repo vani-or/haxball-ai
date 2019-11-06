@@ -1,3 +1,25 @@
+# New version
+
+### Requirements
+
+python 3.6+
+Cython
+Tensorflow (1.13+)
+
+### Installation
+
+Installation of dependencies
+
+    pip install -r requirements.txt
+
+Simulator compilation with Cython
+ 
+    cd simulator && python setup.py build_ext --inplace
+    
+### Training
+
+
+------------
 # HaxballAI
 
 ## L'interrogazione con il gioco reale
