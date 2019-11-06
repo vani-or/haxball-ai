@@ -129,7 +129,7 @@ class PPOModel(Model):
         self.load = functools.partial(load_variables, sess=sess)
 
         initialize()
-        global_variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="")
+        global_variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=model_name)
         if MPI is not None:
             sync_from_root(sess, global_variables) #pylint: disable=E1101
 
@@ -162,8 +162,15 @@ class StaticModel:
 
 
 class RandomModel(StaticModel):
+    def __init__(self, default_action=0, model_name=None, action_space=None) -> None:
+        super().__init__(default_action, model_name, action_space)
+        self.actions_history = []
+
     def step(self, obs, **kwargs):
         num = obs.shape[0]
+        # action = self.action_space.sample()
+        # self.actions_history.append(action)
+        # actions = np.ones(shape=(num,)) * action
         actions = [self.action_space.sample() for i in range(num)]
         tmp_values = np.ones(shape=(num, ))
         tmp_states = None

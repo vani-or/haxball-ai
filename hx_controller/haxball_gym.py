@@ -228,7 +228,7 @@ class Haxball(Env):
         score = None
         if self.gameplay.red_scored:
             if red_team:
-                # print('goal from red')
+                print('goal from red')
                 goal_reward = 50_000
                 score = 1
             else:
@@ -240,7 +240,7 @@ class Haxball(Env):
                 goal_reward = -5_000
                 score = 0
             else:
-                # print('goal from blue')
+                print('goal from blue')
                 goal_reward = 50_000
                 score = 1
             done = True
@@ -293,7 +293,7 @@ class Haxball(Env):
         if state_only:
             return state
 
-        return state, reward/1000, done, {'score': score}
+        return state, reward/1000, done, {'score': score, 'ticks': self._ticks}
 
     def step(self, action):
         # Invio degli input

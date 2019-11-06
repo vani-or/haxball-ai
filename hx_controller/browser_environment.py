@@ -133,10 +133,17 @@ class BrowserEnvironment(HXController):
             if pressed:
                 self.send_button(key, up=True)
 
+    def release_all_buttons_hard(self):
+        for key in ('up', 'right', 'down', 'left', 'space'):
+            self.send_button(key, up=True)
+            self._buttons_state[key] = False
+
     get_info_times = []
     press_buttons_times = []
     get_info_counter = 0
     press_buttons_counter = 0
+    last_velocities = []
+    last_button_release = 0
 
     def step(self, action):
         # Capire quali bottoni da premere
@@ -178,7 +185,7 @@ class BrowserEnvironment(HXController):
         new_info_hash = 0
         game_info = None
         i = 0
-        while (game_info is None or new_info_hash == self.prev_info_hash) and i < 1000:
+        while (game_info is None or new_info_hash == self.prev_info_hash) and i < 250:
             game_info = self.get_game_info()
             new_info_hash = sum(map(hash, sorted(self.get_all_dict_values(game_info))))
             i += 1
@@ -188,6 +195,13 @@ class BrowserEnvironment(HXController):
 
         if not game_info or not game_info['player'] or not game_info['opponent']:
             return
+
+        self.last_velocities.append(math.sqrt(game_info['player']['velocity']['x']**2 + game_info['player']['velocity']['y'] ** 2))
+        self.last_velocities = self.last_velocities[-20:]
+        if len(self.last_velocities) == 20 and np.mean(self.last_velocities) < 0.05 and time.time() - self.last_button_release > 2:
+            self.release_all_buttons_hard()
+            self.last_button_release = time.time()
+            print('release buttons!')
 
         # Se è necessario inverto subito tutte le coordinate per giocare sempre la stessa squadra (Blue)
         self.red_team = game_info['player']['team'] == 'Red'

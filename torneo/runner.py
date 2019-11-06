@@ -157,6 +157,81 @@ class TorneoRunner(AbstractEnvRunner):
 
     def run(self):
         # Here, we init the lists that will contain the mb of experiences
+        mb_obs, mb_rewards, mb_actions, mb_values, mb_dones, mb_neglogpacs = [], [], [], [], [], []
+        mb_states = self.states
+        self.dones = np.array(self.dones)
+        epinfos = []
+        # For n in range number of steps
+        for _ in range(self.nsteps):
+            # Given observations, get action value and neglopacs
+            # We already have self.obs because Runner superclass run self.obs[:] = env.reset() on init
+            # print(self.obs.shape)
+            actions = np.zeros(shape=(2 * self.m ** 2))
+            values = np.zeros_like(actions)
+            neglogpacs = np.zeros_like(actions)
+
+            for i in range(self.m):
+                indexes = self.models_indexes[i]
+                arg_obs = self.obs[indexes]
+                arg_dones = self.dones[indexes]
+                res_actions, res_values, res_states, res_neglogpacs = self.models[i].step(arg_obs, S=None, M=arg_dones)
+                actions[indexes] = res_actions.copy()
+                values[indexes] = res_values.copy()
+                neglogpacs[indexes] = res_neglogpacs.copy()
+
+            # actions, values, self.states, neglogpacs = self.model.step(self.obs, S=self.states, M=self.dones)
+            mb_obs.append(self.obs.copy())
+            mb_actions.append(actions.copy())
+            mb_values.append(values.copy())
+            mb_neglogpacs.append(neglogpacs.copy())
+            mb_dones.append(self.dones)
+
+            # Take actions in env and look the results
+            # Infos contains a ton of useful informations
+            self.obs[:], rewards, self.dones, infos = self.env.step(actions)
+
+            result_scores = [info['score'] for info in infos[::2]]
+            self.process_winners(result_scores)
+
+            # for info in infos:
+            #     maybeepinfo = info.get('episode')
+            #     if maybeepinfo: epinfos.append(maybeepinfo)
+            mb_rewards.append(rewards)
+        # batch of steps to batch of rollouts
+        mb_obs = np.asarray(mb_obs, dtype=self.obs.dtype)
+        mb_rewards = np.asarray(mb_rewards, dtype=np.float32)
+        mb_actions = np.asarray(mb_actions)
+        mb_values = np.asarray(mb_values, dtype=np.float32)
+        mb_neglogpacs = np.asarray(mb_neglogpacs, dtype=np.float32)
+        mb_dones = np.asarray(mb_dones, dtype=np.bool)
+        # last_values = self.model.value(self.obs, S=self.states, M=self.dones)
+        last_values = np.zeros(shape=(2 * self.m ** 2))
+        for i in range(self.m):
+            indexes = self.models_indexes[i]
+            arg_obs = self.obs[indexes]
+            arg_dones = self.dones[indexes]
+            res_values = self.models[i].value(arg_obs, S=None, M=arg_dones)
+            last_values[indexes] = res_values.copy()
+
+        # discount/bootstrap off value fn
+        # mb_returns = np.zeros_like(mb_rewards)
+        mb_advs = np.zeros_like(mb_rewards)
+        lastgaelam = 0
+        for t in reversed(range(self.nsteps)):
+            if t == self.nsteps - 1:
+                nextnonterminal = 1.0 - self.dones
+                nextvalues = last_values
+            else:
+                nextnonterminal = 1.0 - mb_dones[t + 1]
+                nextvalues = mb_values[t + 1]
+            delta = mb_rewards[t] + self.gamma * nextvalues * nextnonterminal - mb_values[t]
+            mb_advs[t] = lastgaelam = delta + self.gamma * self.lam * nextnonterminal * lastgaelam
+        mb_returns = mb_advs + mb_values
+        return (*map(sf01, (mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs)),
+                mb_states, epinfos)
+
+    def run_old(self):
+        # Here, we init the lists that will contain the mb of experiences
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones, mb_neglogpacs = [],[],[],[],[],[]
         mb_states = self.states
         epinfos = []
@@ -181,13 +256,13 @@ class TorneoRunner(AbstractEnvRunner):
                 dones = self.dones[indexes]
 
                 tmp_actions, tmp_values, tmp_states, tmp_neglogpacs = self.models[i].step(obs, S=states, M=dones)
-                actions[indexes] = tmp_actions
-                values[indexes] = tmp_values
+                actions[indexes] = tmp_actions.copy()
+                values[indexes] = tmp_values.copy()
                 if tmp_states is not None:
-                    self.states[indexes] = tmp_states
+                    self.states[indexes] = tmp_states.copy()
                 else:
                     self.states = None
-                neglogpacs[indexes] = tmp_neglogpacs
+                neglogpacs[indexes] = tmp_neglogpacs.copy()
             # results = [m.step(args[i], **kwargs[i]) for i, m in enumerate(self.models)]
             # actions, values, self.states, neglogpacs = self.model.step(self.obs, S=self.states, M=self.dones)
             ######
@@ -236,41 +311,41 @@ class TorneoRunner(AbstractEnvRunner):
             last_values[indexes] = loc_last_values
 
             # discount/bootstrap off value fn
-            # mb_returns = np.zeros_like(mb_rewards)
-            # mb_rewards_loc = mb_rewards[:, indexes]
-            # mb_values_loc = mb_values[:, indexes]
-            # mb_dones_loc = mb_dones[:, indexes]
-            #
-            # mb_advs = np.zeros_like(mb_rewards_loc)
-            # lastgaelam = 0
-            # for t in reversed(range(self.nsteps)):
-            #     if t == self.nsteps - 1:
-            #         nextnonterminal = 1.0 - dones
-            #         nextvalues = loc_last_values
-            #     else:
-            #         nextnonterminal = 1.0 - mb_dones_loc[t + 1]
-            #         nextvalues = mb_values_loc[t + 1]
-            #     delta = mb_rewards_loc[t] + self.gamma * nextvalues * nextnonterminal - mb_values_loc[t]
-            #     mb_advs[t] = lastgaelam = delta + self.gamma * self.lam * nextnonterminal * lastgaelam
-            # mb_returns_loc = mb_advs + mb_values_loc
-            # mb_returns[:, indexes] = mb_returns_loc
+            mb_returns = np.zeros_like(mb_rewards)
+            mb_rewards_loc = mb_rewards[:, indexes]
+            mb_values_loc = mb_values[:, indexes]
+            mb_dones_loc = mb_dones[:, indexes]
+
+            mb_advs = np.zeros_like(mb_rewards_loc)
+            lastgaelam = 0
+            for t in reversed(range(self.nsteps)):
+                if t == self.nsteps - 1:
+                    nextnonterminal = 1.0 - dones
+                    nextvalues = loc_last_values
+                else:
+                    nextnonterminal = 1.0 - mb_dones_loc[t + 1]
+                    nextvalues = mb_values_loc[t + 1]
+                delta = mb_rewards_loc[t] + self.gamma * nextvalues * nextnonterminal - mb_values_loc[t]
+                mb_advs[t] = lastgaelam = delta + self.gamma * self.lam * nextnonterminal * lastgaelam
+            mb_returns_loc = mb_advs + mb_values_loc
+            mb_returns[:, indexes] = mb_returns_loc
         # last_values = self.model.value(self.obs, S=self.states, M=self.dones)
         ########
 
         # # discount/bootstrap off value fn
-        mb_returns = np.zeros_like(mb_rewards)
-        mb_advs = np.zeros_like(mb_rewards)
-        lastgaelam = 0
-        for t in reversed(range(self.nsteps)):
-            if t == self.nsteps - 1:
-                nextnonterminal = 1.0 - self.dones
-                nextvalues = last_values
-            else:
-                nextnonterminal = 1.0 - mb_dones[t+1]
-                nextvalues = mb_values[t+1]
-            delta = mb_rewards[t] + self.gamma * nextvalues * nextnonterminal - mb_values[t]
-            mb_advs[t] = lastgaelam = delta + self.gamma * self.lam * nextnonterminal * lastgaelam
-        mb_returns = mb_advs + mb_values
+        # mb_returns = np.zeros_like(mb_rewards)
+        # mb_advs = np.zeros_like(mb_rewards)
+        # lastgaelam = 0
+        # for t in reversed(range(self.nsteps)):
+        #     if t == self.nsteps - 1:
+        #         nextnonterminal = 1.0 - self.dones
+        #         nextvalues = last_values
+        #     else:
+        #         nextnonterminal = 1.0 - mb_dones[t+1]
+        #         nextvalues = mb_values[t+1]
+        #     delta = mb_rewards[t] + self.gamma * nextvalues * nextnonterminal - mb_values[t]
+        #     mb_advs[t] = lastgaelam = delta + self.gamma * self.lam * nextnonterminal * lastgaelam
+        # mb_returns = mb_advs + mb_values
         return (*map(sf01, (mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs)), mb_states, epinfos)
         # return mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, mb_states, epinfos
 
@@ -300,40 +375,40 @@ class TorneoRunner(AbstractEnvRunner):
             # inv_actions = self.env.invert_actions(actions_loc)
             # models_actions = np.hstack((actions_loc, inv_actions))
             models_actions = actions[sf01_indexes]
-            inv_actions = self.env.invert_actions(models_actions)
-            models_actions = np.hstack((models_actions, inv_actions))
+            # inv_actions = self.env.invert_actions(models_actions)
+            # models_actions = np.hstack((models_actions, inv_actions))
 
             # models_obs = sf01(inv_sf01(obs, self.nsteps)[:, indexes])
             # obs_loc = sf01(obs[:, indexes])
             # inv_obs = self.env.invert_states(obs_loc)
             # models_obs = np.vstack((obs_loc, inv_obs))
             models_obs = obs[sf01_indexes]
-            inv_obs = self.env.invert_states(models_obs)
-            models_obs = np.vstack((models_obs, inv_obs))
+            # inv_obs = self.env.invert_states(models_obs)
+            # models_obs = np.vstack((models_obs, inv_obs))
 
             # models_returns = sf01(inv_sf01(returns, self.nsteps)[:, indexes])
             # returns_loc = sf01(returns[:, indexes])
             # models_returns = np.hstack((returns_loc, returns_loc))
             models_returns = returns[sf01_indexes]
-            models_returns = np.hstack((models_returns, models_returns))
+            # models_returns = np.hstack((models_returns, models_returns))
 
             # models_masks = sf01(inv_sf01(masks, self.nsteps)[:, indexes])
             # masks_loc = sf01(masks[:, indexes])
             # models_masks = np.hstack((masks_loc, masks_loc))
             models_masks = masks[sf01_indexes]
-            models_masks = np.hstack((models_masks, models_masks))
+            # models_masks = np.hstack((models_masks, models_masks))
 
             # models_values = sf01(inv_sf01(values, self.nsteps)[:, indexes])
             # values_loc = sf01(values[:, indexes])
             # models_values = np.hstack((values_loc, values_loc))
             models_values = values[sf01_indexes]
-            models_values = np.hstack((models_values, models_values))
+            # models_values = np.hstack((models_values, models_values))
 
             # models_neglogpacs = sf01(inv_sf01(neglogpacs, self.nsteps)[:, indexes])
             # neglogpacs_loc = sf01(neglogpacs[:, indexes])
             # models_neglogpacs = np.hstack((neglogpacs_loc, neglogpacs_loc))
             models_neglogpacs = neglogpacs[sf01_indexes]
-            models_neglogpacs = np.hstack((models_neglogpacs, models_neglogpacs))
+            # models_neglogpacs = np.hstack((models_neglogpacs, models_neglogpacs))
 
             nbatch = models_actions.shape[0]
             nbatch_train = nbatch // nminibatches
@@ -352,10 +427,8 @@ class TorneoRunner(AbstractEnvRunner):
                         # ORIG
                         # mblossvals.append(model.train(lrnow, cliprangenow, *slices))
                         # MY
-                        if not isinstance(self.models[i], StaticModel):
-                            res = self.models[i].train(lrnow, cliprangenow, *slices)
-                            if isinstance(self.models[i], PPOModel):
-                                mblossvals.append(res)
+                        res = self.models[i].train(lrnow, cliprangenow, *slices)
+                        mblossvals.append(res)
                         ####
             else:  # recurrent version
                 models_states = states[sf01_indexes]

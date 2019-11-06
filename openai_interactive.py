@@ -75,8 +75,8 @@ class DelayedModel:
             action = self.actions[0]
 
             self.env.step_async(action, red_team=not self.play_red)
-            self.state = 5
-            self.wait_time = 0 #5
+            self.state = 0
+            self.wait_time = 5
 
         elif self.state == 5:
             # Aspettiamo un po'
@@ -110,7 +110,7 @@ if __name__ == '__main__':
     # load_path = 'ppo2.h5'
     load_path = 'ppo2_best_so_far2.h5'
     # load_path = 'ppo2_base_delayed2.h5'
-    # load_path = 'models17/ppo_model_1.h5'
+    # load_path = 'models23/ppo_model_3.h5'
     # model_i = 3
     model_i = ''
     # load_path = 'models/%s.h5' % model_i
@@ -159,7 +159,7 @@ if __name__ == '__main__':
     env = Haxball(gameplay=gameplay, max_ticks=max_ticks*2)
     obs = env.reset()
     action = 0
-    play_red = 1
+    play_red = 0
 
     dm = DelayedModel(env, model, play_red)
 

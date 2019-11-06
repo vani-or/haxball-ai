@@ -23,24 +23,24 @@ if __name__ == '__main__':
     n_players = 1
     nenvs = 2
 
-    nsteps = 30
+    nsteps = 120
     gamma = 0.99
     lam = 0.95
     nminibatches = 1  # 4
-    noptepochs = 4
+    noptepochs = 16
     ent_coef = 0.0
-    lr = 3e-4 / 50
+    lr = 3e-4
     cliprange = 0.2
     vf_coef = 0.5
     max_grad_norm = 0.5
-    models_path = 'models22/'
+    models_path = 'models23/'
     os.makedirs(models_path, exist_ok=True)
 
     # load_path = 'ciao.h5'
     save_interval = 25
     load_path = None
     log_interval = 25
-    new_player_introduce_interval = 200
+    new_player_introduce_interval = 250
     replace_worst_interval = 500
     total_timesteps = int(10e7)
     max_ticks = int(60 * 2 * (1 / 0.0166))
@@ -101,7 +101,7 @@ if __name__ == '__main__':
             trainable=True,
             use_original_batch=False
         )
-    perfect_model.load('ppo2.load.h5')
+    # perfect_model.load('ppo2.load.h5')
     # perfect_model.load('ppo2_lstm.h5')
 
     # corridori_model = PPOModel(
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     # )
     # corridori_model.load('ppo2_corridori.h5')
 
-    min_trainable_players = 10
+    min_trainable_players = 5
     min_baseline_players = 0
 
     for fn in os.listdir(models_path):
@@ -213,52 +213,52 @@ if __name__ == '__main__':
     #         rating = float(line)
     # runner.add_model(model, rating=rating)
 
-    model_name = 'static'
-    static_model = StaticModel(default_action=0, model_name=model_name)
-    fn = models_path + model_name + '.rating.txt'
-    rating = 1200
-    if os.path.exists(fn):
-        with open(fn, 'r') as fp:
-            rating = float(fp.read())
-    runner.add_model(static_model, rating=rating)
-
-    model_name = 'always_left'
-    static_model = StaticModel(default_action=7, model_name=model_name)
-    fn = models_path + model_name + '.rating.txt'
-    rating = 1200
-    if os.path.exists(fn):
-        with open(fn, 'r') as fp:
-            rating = float(fp.read())
-    runner.add_model(static_model, rating=rating)
-
-    model_name = 'random'
-    random_model = RandomModel(default_action=0, model_name=model_name, action_space=ac_space)
-    fn = models_path + model_name + '.rating.txt'
-    rating = 1200
-    if os.path.exists(fn):
-        with open(fn, 'r') as fp:
-            rating = float(fp.read())
-    runner.add_model(random_model, rating=rating)
-
-    for i in range(5):
-        model_name = 'pazzo_' + str(i)
-        pazzo_model = PazzoModel(change_period=150 + 10*i, model_name=model_name, action_space=ac_space)
-        fn = models_path + model_name + '.rating.txt'
-        rating = 1200
-        if os.path.exists(fn):
-            with open(fn, 'r') as fp:
-                rating = float(fp.read())
-        runner.add_model(pazzo_model, rating=rating)
-
-    for i in range(5):
-        model_name = 'realistic_' + str(i)
-        realistic_model = MoreRealisticModel(action_space=ac_space, model_name=model_name)
-        fn = models_path + model_name + '.rating.txt'
-        rating = 1200
-        if os.path.exists(fn):
-            with open(fn, 'r') as fp:
-                rating = float(fp.read())
-        runner.add_model(realistic_model, rating=rating)
+    # model_name = 'static'
+    # static_model = StaticModel(default_action=0, model_name=model_name)
+    # fn = models_path + model_name + '.rating.txt'
+    # rating = 1200
+    # if os.path.exists(fn):
+    #     with open(fn, 'r') as fp:
+    #         rating = float(fp.read())
+    # runner.add_model(static_model, rating=rating)
+    #
+    # model_name = 'always_left'
+    # static_model = StaticModel(default_action=7, model_name=model_name)
+    # fn = models_path + model_name + '.rating.txt'
+    # rating = 1200
+    # if os.path.exists(fn):
+    #     with open(fn, 'r') as fp:
+    #         rating = float(fp.read())
+    # runner.add_model(static_model, rating=rating)
+    #
+    # model_name = 'random'
+    # random_model = RandomModel(default_action=0, model_name=model_name, action_space=ac_space)
+    # fn = models_path + model_name + '.rating.txt'
+    # rating = 1200
+    # if os.path.exists(fn):
+    #     with open(fn, 'r') as fp:
+    #         rating = float(fp.read())
+    # runner.add_model(random_model, rating=rating)
+    #
+    # for i in range(5):
+    #     model_name = 'pazzo_' + str(i)
+    #     pazzo_model = PazzoModel(change_period=150 + 10*i, model_name=model_name, action_space=ac_space)
+    #     fn = models_path + model_name + '.rating.txt'
+    #     rating = 1200
+    #     if os.path.exists(fn):
+    #         with open(fn, 'r') as fp:
+    #             rating = float(fp.read())
+    #     runner.add_model(pazzo_model, rating=rating)
+    #
+    # for i in range(5):
+    #     model_name = 'realistic_' + str(i)
+    #     realistic_model = MoreRealisticModel(action_space=ac_space, model_name=model_name)
+    #     fn = models_path + model_name + '.rating.txt'
+    #     rating = 1200
+    #     if os.path.exists(fn):
+    #         with open(fn, 'r') as fp:
+    #             rating = float(fp.read())
+    #     runner.add_model(realistic_model, rating=rating)
 
 
     ############### RUNNER #####################

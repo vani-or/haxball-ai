@@ -332,6 +332,7 @@ def env_worker_multiple_envs(conn: Connection, **env_kwargs):
                 env.step_physics(1)
 
                 env.step_async(a1, red_team=True)
+                env.step_async(a2, red_team=False)
 
                 # Le azioni sfalsate
                 delay = int(np.round(np.clip(np.random.normal(8, 1), 5, 11)))
@@ -342,8 +343,9 @@ def env_worker_multiple_envs(conn: Connection, **env_kwargs):
                     pause2 = delay // 2
                     pause1 = delay - pause2
 
-                env.step_physics(pause1)
-                env.step_async(a2, red_team=False)
+                # env.step_physics(pause1)
+                env.step_physics(pause1 + pause2)
+                # env.step_async(a2, red_team=False)
 
                 # env.step_physics(1)
 
@@ -365,8 +367,8 @@ def env_worker_multiple_envs(conn: Connection, **env_kwargs):
                     infos.append(info)
                     is_done |= done
 
-                    if red_team:
-                        env.step_physics(pause2)
+                    # if red_team and not done:
+                    #     env.step_physics(pause2)
                 if is_done:
                     env.reset()
 
@@ -477,6 +479,15 @@ class HaxballProcPoolVecEnv(HaxballVecEnv):
         #     rews[start:end] = result[2]
         #     dones[start:end] = result[3]
         #     infos[start:end] = result[4]
+
+        # TODO: debug code
+        scores = [info['score'] for info in infos[:] if info['score'] is not None]
+        if len(scores):
+            ones = scores.count(1)
+            zeros = scores.count(0)
+            if ones != zeros:
+                print('oops')
+        #####
 
         return np.stack(obs), np.stack(rews), np.stack(dones), infos
 
