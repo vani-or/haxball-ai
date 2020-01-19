@@ -2,7 +2,8 @@
 
 ![Bot-vs-Human](docs/bot_vs_human.gif)
 
-[Full video](https://youtu.be/fpIe6lNM1NE)
+* [Talk on Machine Learning Milan event](https://youtu.be/Ma_MopOXLCg)
+* [Full gameplay demostration video](https://youtu.be/fpIe6lNM1NE)
 
 This is an implementation of a bot for [haxball](https://www.haxball.com/) problem using Reinforcement Learning.
 
